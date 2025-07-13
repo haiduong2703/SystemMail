@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Full Width Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+        }
+        
+        .header {
+            background: linear-gradient(87deg, #11cdef 0, #1171ef 100%);
+            color: white;
+            min-height: 100px;
+            padding: 1rem 0 1.5rem 0;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .container-fluid {
+            width: 100%;
+            max-width: none;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            margin-top: -2rem;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+            border: none;
+        }
+        
+        .card-header {
+            background: linear-gradient(87deg, #f8f9fa 0, #ffffff 100%);
+            border-bottom: 1px solid #dee2e6;
+            padding: 1.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        
+        .card-header h3 {
+            color: #32325d;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .card-header p {
+            color: #8898aa;
+            font-size: 0.875rem;
+            margin: 0;
+        }
+        
+        .card-body {
+            padding: 2rem;
+        }
+        
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: -0.5rem;
+        }
+        
+        .col {
+            flex: 1;
+            padding: 0.5rem;
+        }
+        
+        .col-6 {
+            flex: 0 0 50%;
+            padding: 0.5rem;
+        }
+        
+        .mail-stats-section {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .mail-stats-section > div {
+            flex: 1;
+        }
+        
+        .server-health {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid #28a745;
+        }
+        
+        .control-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            min-width: 120px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: #5e72e4;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #2dce89;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #f5365c;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #11cdef;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+        }
+        
+        .simulate-form {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #dee2e6;
+            margin-top: 1rem;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #32325d;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table td {
+            padding: 0.5rem 0.75rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .table td:first-child {
+            font-weight: 500;
+            color: #495057;
+            width: 40%;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            border-radius: 0.375rem;
+            color: white;
+        }
+        
+        .badge-success { background: #2dce89; }
+        .badge-info { background: #11cdef; }
+        .badge-warning { background: #fb6340; }
+        .badge-danger { background: #f5365c; }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            
+            .card-body {
+                padding: 1rem;
+            }
+            
+            .card-header {
+                padding: 1rem;
+            }
+            
+            .mail-stats-section {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .control-actions {
+                gap: 0.5rem;
+            }
+            
+            .btn {
+                min-width: 100px;
+            }
+            
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .form-group {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="text-align: center; padding-top: 1rem;">
+            <h2>SERVER MONITORING</h2>
+            <p>Monitor mail server status and performance</p>
+        </div>
+    </div>
+    
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3>Real-time Mail Monitor</h3>
+                        <p>WebSocket connection to mail server</p>
+                    </div>
+                    <div>
+                        <span class="badge badge-success">🟢 Connected</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- Mail Statistics & Server Health -->
+                <div class="mail-stats-section">
+                    <div>
+                        <h4>📊 Mail Statistics</h4>
+                        <table class="table">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Total Mails:</strong></td>
+                                    <td><span class="badge badge-info">1,234</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>New Mails:</strong></td>
+                                    <td><span class="badge badge-warning">5</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Đúng hạn (Unreplied):</strong></td>
+                                    <td><span class="badge badge-info">89</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Quá hạn (Unreplied):</strong></td>
+                                    <td><span class="badge badge-danger">12</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Last Update:</strong></td>
+                                    <td>2025-01-13 14:30:25</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div>
+                        <div class="server-health">
+                            <h4>🖥️ Server Health</h4>
+                            <table class="table">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Status:</strong></td>
+                                        <td><span class="badge badge-success">OK</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Uptime:</strong></td>
+                                        <td>2h 15m 30s</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Connected Clients:</strong></td>
+                                        <td><span class="badge badge-info">3</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Last Check:</strong></td>
+                                        <td>21:30:27</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Control Actions -->
+                <div>
+                    <h4>🎛️ Control Actions</h4>
+                    <div class="control-actions">
+                        <button class="btn btn-primary">🔄 Refresh Stats</button>
+                        <button class="btn btn-success">📧 Manual Reload Data</button>
+                        <button class="btn btn-danger">📮 Mark as Read</button>
+                        <button class="btn btn-info">🔄 Enable Reload</button>
+                        <button class="btn btn-info">🔍 Check Health</button>
+                    </div>
+                </div>
+                
+                <!-- Simulate New Mail -->
+                <div>
+                    <h4>📧 Simulate New Mail</h4>
+                    <div class="simulate-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Subject</label>
+                                <input type="text" class="form-control" placeholder="Enter mail subject">
+                            </div>
+                            <div class="form-group">
+                                <label>From</label>
+                                <input type="text" class="form-control" placeholder="sender@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Type</label>
+                                <select class="form-control">
+                                    <option>To</option>
+                                    <option>CC</option>
+                                    <option>BCC</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-danger">
+                                    📧 Create & New Mail
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-success" style="margin-top: 1rem;">
+                            <strong>✅ Success!</strong> New mail created: test-mail-001.json
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Test fullwidth functionality
+        function checkFullWidth() {
+            const container = document.querySelector('.container-fluid');
+            const card = document.querySelector('.card');
+            
+            console.log('Container width:', container.offsetWidth + 'px');
+            console.log('Card width:', card.offsetWidth + 'px');
+            console.log('Window width:', window.innerWidth + 'px');
+            console.log('Container uses full width:', container.offsetWidth >= window.innerWidth - 64);
+        }
+        
+        // Check on load and resize
+        window.addEventListener('load', checkFullWidth);
+        window.addEventListener('resize', checkFullWidth);
+        
+        // Test responsive behavior
+        function testResponsive() {
+            const mailStats = document.querySelector('.mail-stats-section');
+            const controlActions = document.querySelector('.control-actions');
+            
+            if (window.innerWidth <= 768) {
+                console.log('Mobile layout active');
+                console.log('Mail stats flex direction:', getComputedStyle(mailStats).flexDirection);
+            } else {
+                console.log('Desktop layout active');
+                console.log('Mail stats display:', getComputedStyle(mailStats).display);
+            }
+        }
+        
+        window.addEventListener('resize', testResponsive);
+        testResponsive();
+    </script>
+</body>
+</html>

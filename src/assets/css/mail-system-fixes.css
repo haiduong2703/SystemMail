@@ -1,0 +1,143 @@
+/* 
+ * Mail System CSS Fixes
+ * Ensures all dropdowns in mail management pages appear above navbar
+ */
+
+/* Fix z-index for all mail-related dropdowns */
+.mail-page-dropdown,
+.mail-actions-dropdown,
+.date-filter-container,
+.date-filter-container .dropdown-menu,
+.mail-actions-dropdown .dropdown-menu {
+  z-index: 1080 !important;
+}
+
+/* Ensure all dropdowns in mail management pages are above navbar (z-index: 1071) */
+[class*="mail"] .dropdown-menu,
+.mail-container .dropdown-menu,
+.mail-page .dropdown-menu {
+  z-index: 1080 !important;
+  position: absolute !important;
+}
+
+/* Specific fixes for DateFilterNew component */
+.date-filter-container .dropdown-menu-lg {
+  z-index: 1080 !important;
+  position: absolute !important;
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+/* Ensure dropdown menus in mail tables are properly positioned */
+.mail-table .dropdown-menu,
+.mail-list .dropdown-menu {
+  z-index: 1080 !important;
+}
+
+/* Fix for any Bootstrap dropdown that might be affected */
+.dropdown-menu.show {
+  z-index: 1080 !important;
+}
+
+/* Additional safety for all mail-related components */
+.mail-system .dropdown-menu,
+.mail-management .dropdown-menu,
+.mail-dashboard .dropdown-menu {
+  z-index: 1080 !important;
+}
+
+/* Ensure proper stacking context for mail pages */
+.main-content .mail-page,
+.main-content [class*="mail"] {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fix for mobile responsiveness */
+@media (max-width: 767.98px) {
+  .date-filter-container .dropdown-menu {
+    position: fixed !important;
+    z-index: 1080 !important;
+    width: 90vw !important;
+    max-width: 400px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
+/* Mail Page Header Styles */
+.mail-page-header .breadcrumb-dark .breadcrumb-item a {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.mail-page-header .breadcrumb-dark .breadcrumb-item.active {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.mail-page-header .input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.mail-page-header .input-group input:focus {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.1) !important;
+}
+
+/* User avatar hover effect */
+.mail-page-header .avatar:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* Responsive adjustments for mail page header */
+@media (max-width: 991.98px) {
+  .mail-page-header .input-group {
+    min-width: 150px !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .mail-page-header .h1 {
+    font-size: 1.5rem !important;
+  }
+
+  .mail-page-header .breadcrumb {
+    display: none !important;
+  }
+}
+
+/* User Dropdown Menu with Blue Gradient Background */
+.navbar-top .dropdown-menu-arrow {
+  background: linear-gradient(87deg, #11cdef 0, #1171ef 100%) !important;
+  border: none !important;
+  box-shadow: 0 50px 100px rgba(50,50,93,.1), 0 15px 35px rgba(50,50,93,.15), 0 5px 15px rgba(0,0,0,.1) !important;
+}
+
+.navbar-top .dropdown-menu-arrow .dropdown-item {
+  color: white !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.navbar-top .dropdown-menu-arrow .dropdown-item:hover,
+.navbar-top .dropdown-menu-arrow .dropdown-item:focus {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+.navbar-top .dropdown-menu-arrow .dropdown-item i {
+  color: white !important;
+}
+
+.navbar-top .dropdown-menu-arrow .dropdown-item span {
+  color: white !important;
+}
+
+.navbar-top .dropdown-menu-arrow .dropdown-header h6 {
+  color: white !important;
+}
+
+.navbar-top .dropdown-menu-arrow .dropdown-divider {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}

@@ -1,0 +1,13 @@
+//
+// Nav
+//
+
+// Customization for Sidebar icons
+.navbar-vertical .navbar-nav .nav-item .nav-link i {
+  font-size: 1.5rem; // Adjust this value to change icon size
+  min-width: 1.5rem; // Ensure icons have enough space
+  margin-right: 0.5rem; // Space between icon and text
+}
+
+@import "navs/nav";
+@import "navs/nav-pills";

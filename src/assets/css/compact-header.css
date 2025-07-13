@@ -1,0 +1,86 @@
+/* Compact Header Styles */
+
+.header.compact {
+  min-height: 80px !important;
+  padding-bottom: 1rem !important;
+  padding-top: 0.5rem !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+@media (min-width: 768px) {
+  .header.compact {
+    min-height: 100px !important;
+    padding-bottom: 1.5rem !important;
+    padding-top: 1rem !important;
+  }
+}
+
+.header.compact .header-body {
+  padding-bottom: 0 !important;
+}
+
+.header.compact .header-body h6 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.header.compact .header-body p {
+  font-size: 0.875rem;
+  margin-bottom: 0;
+  opacity: 0.8;
+}
+
+/* Adjust container margin for compact header */
+.mail-page.compact-layout {
+  margin-top: -2rem !important;
+}
+
+/* For non-mail pages using compact header */
+.compact-layout {
+  margin-top: -2rem !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .header.compact {
+    min-height: 60px !important;
+    padding-bottom: 0.75rem !important;
+    padding-top: 0.5rem !important;
+  }
+
+  .mail-page.compact-layout,
+  .compact-layout {
+    margin-top: -1.5rem !important;
+  }
+}
+
+/* Prevent header overlap with navigation */
+.header.compact + .container-fluid {
+  position: relative;
+  z-index: 2;
+}
+
+/* Ensure proper spacing for tab navigation */
+.nav-tabs {
+  position: relative;
+  z-index: 3;
+  background: white;
+  margin-top: 0;
+}
+
+/* Animation for smooth transitions */
+.header.compact {
+  transition: all 0.3s ease;
+}
+
+.header.compact .header-body {
+  transition: all 0.3s ease;
+}
+
+/* Fix for card headers that might overlap */
+.card .card-header {
+  position: relative;
+  z-index: 2;
+}
