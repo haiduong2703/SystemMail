@@ -54,25 +54,25 @@ export const useMailData = () => {
     const newSocket = io('http://localhost:3001');
     setSocket(newSocket);
 
-    // Listen for mail stats updates
+    // Listen for mail stats updates - AUTO-RELOAD DISABLED
     newSocket.on('mailStatsUpdate', (stats) => {
       console.log('📡 Received mail stats update:', stats);
-      // Reload mails when stats change
-      loadData();
+      // Auto-reload disabled for performance
+      // loadData();
     });
 
-    // Listen for new mails detected
+    // Listen for new mails detected - AUTO-RELOAD DISABLED
     newSocket.on('newMailsDetected', (data) => {
       console.log('🆕 New mails detected:', data);
-      // Reload mails when new mails are detected
-      loadData();
+      // Auto-reload disabled for performance
+      // loadData();
     });
 
-    // Listen for mail moved events
+    // Listen for mail moved events - AUTO-RELOAD DISABLED
     newSocket.on('mailMoved', (data) => {
       console.log('📧 Mail moved:', data);
-      // Reload mails when mail is moved
-      loadData();
+      // Auto-reload disabled for performance
+      // loadData();
     });
 
     // Cleanup on unmount

@@ -179,11 +179,13 @@ const Assignment = () => {
     username: '',
     email: '',
     fullName: '',
+    password: '',
     isAdmin: false,
-    isActive: true,
-    department: '',
-    phone: ''
+    isActive: true
   });
+
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     loadGroups();
@@ -269,8 +271,6 @@ const Assignment = () => {
             role: 'admin',
             isAdmin: true, // Mapped from role for frontend
             isActive: true,
-            department: 'IT',
-            phone: '+84-123-456-789',
             createdAt: '2025-07-11T08:24:18.248Z',
             updatedAt: '2025-07-11T08:24:18.248Z',
             lastLogin: '2025-07-11T10:30:00.000Z'
@@ -283,8 +283,6 @@ const Assignment = () => {
             role: 'user',
             isAdmin: false,
             isActive: true,
-            department: 'Marketing',
-            phone: '+84-987-654-321',
             createdAt: '2025-07-10T08:24:18.248Z',
             updatedAt: '2025-07-10T08:24:18.248Z',
             lastLogin: '2025-07-11T09:15:00.000Z'
@@ -297,8 +295,6 @@ const Assignment = () => {
             role: 'user',
             isAdmin: false,
             isActive: true,
-            department: 'Sales',
-            phone: '+84-555-123-456',
             createdAt: '2025-07-09T08:24:18.248Z',
             updatedAt: '2025-07-09T08:24:18.248Z',
             lastLogin: '2025-07-10T14:20:00.000Z'
@@ -318,8 +314,6 @@ const Assignment = () => {
           role: 'admin',
           isAdmin: true,
           isActive: true,
-          department: 'IT',
-          phone: '+84-123-456-789',
           createdAt: '2025-07-11T08:24:18.248Z',
           updatedAt: '2025-07-11T08:24:18.248Z',
           lastLogin: null
@@ -440,6 +434,12 @@ const Assignment = () => {
         return;
       }
 
+      // Password validation for new users
+      if (!editingUser && !userForm.password) {
+        setError('Password is required for new users');
+        return;
+      }
+
       // Email validation
       if (!userForm.email.includes('@')) {
         setError('Please enter a valid email address');
@@ -449,14 +449,22 @@ const Assignment = () => {
       const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
       const method = editingUser ? 'PUT' : 'POST';
 
-      console.log(`${editingUser ? 'Updating' : 'Creating'} user:`, userForm);
+      // Prepare data to send
+      const userData = { ...userForm };
+
+      // For edit mode, only include password if it's not empty
+      if (editingUser && !userData.password) {
+        delete userData.password;
+      }
+
+      console.log(`${editingUser ? 'Updating' : 'Creating'} user:`, userData);
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(userForm)
+        body: JSON.stringify(userData)
       });
 
       if (response.ok) {
@@ -465,14 +473,14 @@ const Assignment = () => {
 
         setSuccess(editingUser ? 'User updated successfully' : 'User created successfully');
         setUserModal(false);
+        setShowPassword(false);
         setUserForm({
           username: '',
           email: '',
           fullName: '',
+          password: '',
           isAdmin: false,
-          isActive: true,
-          department: '',
-          phone: ''
+          isActive: true
         });
         setEditingUser(null);
 
@@ -498,10 +506,9 @@ const Assignment = () => {
       username: user.username,
       email: user.email,
       fullName: user.fullName,
+      password: '', // Leave empty for edit mode
       isAdmin: user.isAdmin,
-      isActive: user.isActive,
-      department: user.department || '',
-      phone: user.phone || ''
+      isActive: user.isActive
     });
     setUserModal(true);
   };
@@ -708,8 +715,7 @@ const Assignment = () => {
           <thead className="thead-light">
             <tr>
               <th scope="col">User Info</th>
-              <th scope="col">Contact</th>
-              <th scope="col">Department</th>
+              <th scope="col">Email</th>
               <th scope="col">Status</th>
               <th scope="col">Admin</th>
               <th scope="col">Last Login</th>
@@ -741,17 +747,6 @@ const Assignment = () => {
                     <i className="fas fa-envelope mr-1 text-primary" />
                     {user.email}
                   </div>
-                  {user.phone && (
-                    <div className="text-xs text-muted">
-                      <i className="fas fa-phone mr-1" />
-                      {user.phone}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <Badge color="info" pill>
-                    {user.department || 'N/A'}
-                  </Badge>
                 </td>
                 <td>
                   <Badge
@@ -1371,14 +1366,14 @@ const Assignment = () => {
           setUserModal(!userModal);
           if (!userModal) {
             setEditingUser(null);
+            setShowPassword(false);
             setUserForm({
               username: '',
               email: '',
               fullName: '',
+              password: '',
               isAdmin: false,
-              isActive: true,
-              department: '',
-              phone: ''
+              isActive: true
             });
           }
         }}>
@@ -1430,55 +1425,58 @@ const Assignment = () => {
                 </Col>
                 <Col md="6">
                   <FormGroup>
-                    <Label for="department">Department</Label>
-                    <Input
-                      type="select"
-                      id="department"
-                      value={userForm.department}
-                      onChange={(e) => setUserForm({...userForm, department: e.target.value})}
-                    >
-                      <option value="">Select Department</option>
-                      <option value="IT">IT</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Sales">Sales</option>
-                      <option value="HR">HR</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Operations">Operations</option>
-                    </Input>
+                    <Label for="password">Password {editingUser ? '(leave blank to keep current)' : '*'}</Label>
+                    <div className="input-group">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        value={userForm.password}
+                        onChange={(e) => setUserForm({...userForm, password: e.target.value})}
+                        placeholder={editingUser ? "Enter new password" : "Enter password"}
+                        required={!editingUser}
+                        className="form-control"
+                      />
+                      <div className="input-group-append">
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{
+                            border: '1px solid #cad1d7',
+                            borderLeft: 'none',
+                            backgroundColor: '#f8f9fa',
+                            color: '#6c757d'
+                          }}
+                        >
+                          <i className={showPassword ? "fas fa-eye-slash" : "fas fa-eye"}></i>
+                        </button>
+                      </div>
+                    </div>
                   </FormGroup>
                 </Col>
               </Row>
-              <Row>
-                <Col md="6">
+              <Row style={{marginLeft:"10px"}}>
+                <Col md="12">
                   <FormGroup>
-                    <Label for="phone">Phone</Label>
-                    <Input
-                      type="tel"
-                      id="phone"
-                      value={userForm.phone}
-                      onChange={(e) => setUserForm({...userForm, phone: e.target.value})}
-                      placeholder="Enter phone number"
-                    />
-                  </FormGroup>
-                </Col>
-                <Col md="6">
-                  <FormGroup>
-                    <div className="mt-4">
-                      <Label check className="mr-3">
+                    <div className="mt-2">
+                      <Label check className="mr-4">
                         <Input
                           type="checkbox"
                           checked={userForm.isActive}
                           onChange={(e) => setUserForm({...userForm, isActive: e.target.checked})}
                         />
-                        Active User
+                        <span className="ml-2">Active User</span>
                       </Label>
+                      
+                    </div>
+                    <div className="mt-2">
                       <Label check>
                         <Input
                           type="checkbox"
                           checked={userForm.isAdmin}
                           onChange={(e) => setUserForm({...userForm, isAdmin: e.target.checked})}
                         />
-                        Administrator
+                        <span className="ml-2">Administrator</span>
                       </Label>
                     </div>
                   </FormGroup>
@@ -1493,14 +1491,14 @@ const Assignment = () => {
             <Button color="secondary" onClick={() => {
               setUserModal(false);
               setEditingUser(null);
+              setShowPassword(false);
               setUserForm({
                 username: '',
                 email: '',
                 fullName: '',
+                password: '',
                 isAdmin: false,
-                isActive: true,
-                department: '',
-                phone: ''
+                isActive: true
               });
             }}>
               Cancel

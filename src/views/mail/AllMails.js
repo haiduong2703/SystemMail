@@ -57,6 +57,7 @@ import AssignModal from "components/AssignModal.js";
 import PaginationControls from "components/PaginationControls/PaginationControls.js";
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
+import CompactClock from "components/RealtimeClock/CompactClock.js";
 
 const AllMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,8 +72,9 @@ const AllMails = () => {
   const [selectedMail, setSelectedMail] = useState(null); // State for selected mail details
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [mailToAssign, setMailToAssign] = useState(null);
+  const [selectedMails, setSelectedMails] = useState([]); // Selected mails for bulk actions
 
-  const { mails, loading, error, selectedMail: contextSelectedMail, handleSelectMail, formatDate, refreshMails } = useMailContext();
+  const { mails, loading, error, selectedMail: contextSelectedMail, handleSelectMail: useMailContextSelectMail, formatDate, refreshMails } = useMailContext();
   const { markMailAsRead } = useMarkMailRead();
   const { getGroupInfo, refreshGroups } = useGroupContext();
 
@@ -80,6 +82,25 @@ const AllMails = () => {
   const handleAssignMail = (mail) => {
     setMailToAssign(mail);
     setAssignModalOpen(true);
+  };
+
+  // Handle checkbox selection
+  const handleSelectMail = (mailId, isSelected) => {
+    if (isSelected) {
+      setSelectedMails(prev => [...prev, mailId]);
+    } else {
+      setSelectedMails(prev => prev.filter(id => id !== mailId));
+    }
+  };
+
+  // Handle select all checkbox
+  const handleSelectAll = (isSelected) => {
+    if (isSelected) {
+      const allMailIds = currentMails.map(mail => mail.id || `${mail.Subject}-${mail.From}`);
+      setSelectedMails(allMailIds);
+    } else {
+      setSelectedMails([]);
+    }
   };
 
   const handleAssignSuccess = (updatedMail) => {
@@ -113,6 +134,31 @@ const AllMails = () => {
       }
     } catch (error) {
       console.error('Error moving mail to review:', error);
+    }
+  };
+
+  // Handle move selected mails to review
+  const handleMoveSelectedToReview = async () => {
+    if (selectedMails.length === 0) {
+      console.log('No mails selected');
+      return;
+    }
+
+    try {
+      // Move each selected mail to review
+      for (const mailId of selectedMails) {
+        const mail = filteredMails.find(m => (m.id || `${m.Subject}-${m.From}`) === mailId);
+        if (mail && mail.category !== "ReviewMail") { // Only move non-review mails
+          await handleMoveToReview(mail);
+        }
+      }
+
+      // Clear selection
+      setSelectedMails([]);
+
+      console.log(`Successfully moved ${selectedMails.length} mail(s) to Review section`);
+    } catch (error) {
+      console.error('Error moving selected mails to review:', error);
     }
   };
 
@@ -174,6 +220,28 @@ const AllMails = () => {
     }
 
     return matchesSearch && matchesStatus && matchesDate && matchesReplyStatus;
+  }).sort((a, b) => {
+    // Sort by appropriate date field based on mail type
+    const getRelevantDate = (mail) => {
+      // For review mails, use dateMoved if available
+      if (mail.category === "ReviewMail" && mail.dateMoved && Array.isArray(mail.dateMoved)) {
+        const [date, time] = mail.dateMoved;
+        return new Date(`${date}T${time || '00:00'}`);
+      }
+
+      // For other mails, use Date field
+      if (mail.Date && Array.isArray(mail.Date)) {
+        const [date, time] = mail.Date;
+        return new Date(`${date}T${time || '00:00'}`);
+      }
+
+      return new Date(0); // Very old date as fallback
+    };
+
+    const dateA = getRelevantDate(a);
+    const dateB = getRelevantDate(b);
+
+    return dateB - dateA; // Newest first (descending order)
   });
 
   // Pagination
@@ -237,9 +305,13 @@ const AllMails = () => {
           <Col>
             <Card className="shadow">
               <CardBody>
-                
-                <div className=" p-3">
-                  <DateFilterNew onDateChange={handleDateChange} />
+                <div className="d-flex justify-content-between align-items-center p-3">
+                  <div className="flex-grow-1">
+                    <DateFilterNew onDateChange={handleDateChange} />
+                  </div>
+                  <div className="ml-4">
+                    <CompactClock />
+                  </div>
                 </div>
               </CardBody>
             </Card>
@@ -264,9 +336,20 @@ const AllMails = () => {
                       size="sm"
                       onClick={refreshGroups}
                       title="Refresh group data"
+                      className="mr-2"
                     >
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
+                    </Button>
+                    <Button
+                      color="warning"
+                      size="sm"
+                      onClick={handleMoveSelectedToReview}
+                      disabled={selectedMails.length === 0}
+                      title={`Move ${selectedMails.length} selected mail(s) to Review section`}
+                    >
+                      <i className="fas fa-arrow-down mr-1" />
+                      Move Selected ({selectedMails.length})
                     </Button>
                   </div>
                   <div className="col-lg-6 col-5">
@@ -358,6 +441,11 @@ const AllMails = () => {
                 handleAssignMail={handleAssignMail}
                 handleMoveToReview={handleMoveToReview}
                 mailType="all"
+                // Checkbox functionality
+                showCheckboxes={true}
+                selectedMails={selectedMails}
+                onSelectMail={handleSelectMail}
+                onSelectAll={handleSelectAll}
               />
               <CardFooter className="py-4">
                 <PaginationControls

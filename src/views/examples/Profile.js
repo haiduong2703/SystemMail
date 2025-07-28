@@ -28,6 +28,10 @@ import {
   Container,
   Row,
   Col,
+  Alert,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupText,
 } from "reactstrap";
 // core components
 import UserHeader from "components/Headers/UserHeader.js";
@@ -52,6 +56,20 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+
+  // Password change states
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -103,6 +121,70 @@ const Profile = () => {
       setSaveMessage(`Error: ${error.message}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Password change handlers
+  const handlePasswordInputChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  const handlePasswordChange = async () => {
+    setIsChangingPassword(true);
+    setPasswordMessage('');
+
+    // Validation
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordMessage('All password fields are required');
+      setIsChangingPassword(false);
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage('New passwords do not match');
+      setIsChangingPassword(false);
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMessage('New password must be at least 6 characters long');
+      setIsChangingPassword(false);
+      return;
+    }
+
+    try {
+      const result = await updateUser({
+        username: user.username,
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+
+      if (result.success) {
+        setPasswordMessage('Password changed successfully!');
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        setTimeout(() => setPasswordMessage(''), 3000);
+      } else {
+        setPasswordMessage(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      setPasswordMessage(`Error: ${error.message}`);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -177,25 +259,8 @@ const Profile = () => {
                   </div>
                 )}
               </CardHeader>
-              <CardBody className="pt-0 pt-md-4">
-                <Row>
-                  <div className="col">
-                    <div className="card-profile-stats d-flex justify-content-center mt-md-5">
-                      <div>
-                        <span className="heading">{user.role === 'admin' ? '∞' : user.role === 'manager' ? '50' : '10'}</span>
-                        <span className="description">Access Level</span>
-                      </div>
-                      <div>
-                        <span className="heading">{new Date(user.createdAt || Date.now()).getFullYear()}</span>
-                        <span className="description">Member Since</span>
-                      </div>
-                      <div>
-                        <span className="heading">{user.isActive ? 'Active' : 'Inactive'}</span>
-                        <span className="description">Status</span>
-                      </div>
-                    </div>
-                  </div>
-                </Row>
+              <CardBody className="pt-0 pt-md-4" style={{marginTop:"50px"}}>
+               
                 <div className="text-center">
                   <h3>
                     {user.fullName || user.username}
@@ -205,11 +270,11 @@ const Profile = () => {
                       </span>
                     </span>
                   </h3>
-                  <div className="h5 font-weight-300">
+                  <div >
                     <i className="ni ni-email-83 mr-2" />
                     {user.email}
                   </div>
-                  <div className="h5 mt-4">
+                  <div>
                     <i className="ni ni-single-02 mr-2" />
                     Username: {user.username}
                   </div>
@@ -439,6 +504,147 @@ const Profile = () => {
                         disabled={!isEditing}
                       />
                     </FormGroup>
+                  </div>
+                </Form>
+              </CardBody>
+            </Card>
+
+            {/* Password Change Card */}
+            <Card className="bg-secondary shadow mt-4">
+              <CardHeader className="bg-white border-0">
+                <Row className="align-items-center">
+                  <Col xs="8">
+                    <h3 className="mb-0">Change Password</h3>
+                    <p className="text-muted mb-0">Update your account password</p>
+                  </Col>
+                  <Col className="text-right" xs="4">
+                    <i className="ni ni-lock-circle-open text-primary" style={{ fontSize: '24px' }}></i>
+                  </Col>
+                </Row>
+              </CardHeader>
+              <CardBody>
+                <Form>
+                  <div className="pl-lg-4">
+                    <Row>
+                      <Col lg="12">
+                        <FormGroup>
+                          <label className="form-control-label" htmlFor="current-password">
+                            Current Password
+                          </label>
+                          <InputGroup>
+                            <Input
+                              className="form-control-alternative"
+                              id="current-password"
+                              placeholder="Enter current password"
+                              type={showPasswords.current ? "text" : "password"}
+                              name="currentPassword"
+                              value={passwordData.currentPassword}
+                              onChange={handlePasswordInputChange}
+                            />
+                            <InputGroupAddon addonType="append">
+                              <InputGroupText>
+                                <i
+                                  className={`fas ${showPasswords.current ? 'fa-eye-slash' : 'fa-eye'}`}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => togglePasswordVisibility('current')}
+                                />
+                              </InputGroupText>
+                            </InputGroupAddon>
+                          </InputGroup>
+                        </FormGroup>
+                      </Col>
+                    </Row>
+
+                    <Row>
+                      <Col lg="6">
+                        <FormGroup>
+                          <label className="form-control-label" htmlFor="new-password">
+                            New Password
+                          </label>
+                          <InputGroup>
+                            <Input
+                              className="form-control-alternative"
+                              id="new-password"
+                              placeholder="Enter new password"
+                              type={showPasswords.new ? "text" : "password"}
+                              name="newPassword"
+                              value={passwordData.newPassword}
+                              onChange={handlePasswordInputChange}
+                            />
+                            <InputGroupAddon addonType="append">
+                              <InputGroupText>
+                                <i
+                                  className={`fas ${showPasswords.new ? 'fa-eye-slash' : 'fa-eye'}`}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => togglePasswordVisibility('new')}
+                                />
+                              </InputGroupText>
+                            </InputGroupAddon>
+                          </InputGroup>
+                          <small className="text-muted">Password must be at least 6 characters long</small>
+                        </FormGroup>
+                      </Col>
+
+                      <Col lg="6">
+                        <FormGroup>
+                          <label className="form-control-label" htmlFor="confirm-password">
+                            Confirm New Password
+                          </label>
+                          <InputGroup>
+                            <Input
+                              className="form-control-alternative"
+                              id="confirm-password"
+                              placeholder="Confirm new password"
+                              type={showPasswords.confirm ? "text" : "password"}
+                              name="confirmPassword"
+                              value={passwordData.confirmPassword}
+                              onChange={handlePasswordInputChange}
+                            />
+                            <InputGroupAddon addonType="append">
+                              <InputGroupText>
+                                <i
+                                  className={`fas ${showPasswords.confirm ? 'fa-eye-slash' : 'fa-eye'}`}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => togglePasswordVisibility('confirm')}
+                                />
+                              </InputGroupText>
+                            </InputGroupAddon>
+                          </InputGroup>
+                        </FormGroup>
+                      </Col>
+                    </Row>
+
+                    {passwordMessage && (
+                      <Row>
+                        <Col lg="12">
+                          <Alert color={passwordMessage.includes('Error') ? 'danger' : 'success'}>
+                            {passwordMessage}
+                          </Alert>
+                        </Col>
+                      </Row>
+                    )}
+
+                    <Row>
+                      <Col lg="12" className="text-right">
+                        <Button
+                          color="primary"
+                          onClick={handlePasswordChange}
+                          disabled={isChangingPassword}
+                        >
+                          {isChangingPassword ? (
+                            <>
+                              <i className="fa fa-spinner fa-spin mr-1"></i>
+                              Changing Password...
+                            </>
+                          ) : (
+                            <>
+                              <i className="ni ni-lock-circle-open mr-1"></i>
+                              Change Password
+                            </>
+                          )}
+                        </Button>
+                      </Col>
+                    </Row>
                   </div>
                 </Form>
               </CardBody>

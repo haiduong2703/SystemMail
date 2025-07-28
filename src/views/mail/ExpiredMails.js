@@ -54,6 +54,7 @@ import CompactHeader from "components/Headers/CompactHeader.js";
 import { useMailContext } from 'contexts/MailContext.js';
 import { useGroupContext } from 'contexts/GroupContext.js';
 import AssignModal from "components/AssignModal.js";
+import CompactClock from "components/RealtimeClock/CompactClock.js";
 import PaginationControls from "components/PaginationControls/PaginationControls.js";
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
@@ -71,11 +72,12 @@ const ExpiredMails = () => {
   const [selectedMail, setSelectedMail] = useState(null); // State for selected mail details
   const [assignModalOpen, setAssignModalOpen] = useState(false); // State for Assign Modal
   const [mailToAssign, setMailToAssign] = useState(null); // Mail to be assigned
+  const [selectedMails, setSelectedMails] = useState([]); // Selected mails for bulk actions
 
   const allExpiredMails = useExpiredMails();
   const expiredUnrepliedMails = useExpiredUnrepliedMails();
   const expiredRepliedMails = useExpiredRepliedMails();
-  const { mails, formatDate: useMailFormatDate, handleSelectMail, selectedMail: useSelectedMail, refreshMails } = useMailContext();
+  const { mails, formatDate: useMailFormatDate, handleSelectMail: useMailContextSelectMail, selectedMail: useSelectedMail, refreshMails } = useMailContext();
   const { markMailAsRead } = useMarkMailRead();
   const { getGroupInfo, refreshGroups } = useGroupContext();
 
@@ -85,13 +87,44 @@ const ExpiredMails = () => {
     setAssignModalOpen(true);
   };
 
+  // Handle checkbox selection
+  const handleSelectMail = (mailId, isSelected) => {
+    console.log('☑️ handleSelectMail called:', { mailId, isSelected });
+
+    if (isSelected) {
+      setSelectedMails(prev => {
+        const newSelection = [...prev, mailId];
+        console.log('✅ Added to selection:', newSelection);
+        return newSelection;
+      });
+    } else {
+      setSelectedMails(prev => {
+        const newSelection = prev.filter(id => id !== mailId);
+        console.log('❌ Removed from selection:', newSelection);
+        return newSelection;
+      });
+    }
+  };
+
+  // Handle select all checkbox
+  const handleSelectAll = (isSelected) => {
+    if (isSelected) {
+      const allMailIds = currentMails.map(mail => mail.id || `${mail.Subject}-${mail.From}`);
+      setSelectedMails(allMailIds);
+    } else {
+      setSelectedMails([]);
+    }
+  };
+
   const handleAssignSuccess = (updatedMail) => {
     console.log('Mail assigned successfully:', updatedMail);
   };
 
   // Handle move mail to review
   const handleMoveToReview = async (mail) => {
+    console.log('🚀 ExpiredMails handleMoveToReview called with:', mail);
     try {
+      console.log('📤 Sending API request to move-to-review...');
       const response = await fetch('http://localhost:3001/api/move-to-review', {
         method: 'POST',
         headers: {
@@ -103,6 +136,7 @@ const ExpiredMails = () => {
         })
       });
 
+      console.log('📥 API response status:', response.status);
       if (response.ok) {
         const result = await response.json();
         // Show success message (you can add alert state if needed)
@@ -117,6 +151,50 @@ const ExpiredMails = () => {
       }
     } catch (error) {
       console.error('Error moving mail to review:', error);
+    }
+  };
+
+  // Handle move selected mails to review
+  const handleMoveSelectedToReview = async () => {
+    console.log('🔄 handleMoveSelectedToReview called');
+    console.log('📧 Selected mails:', selectedMails);
+    console.log('📊 Selected count:', selectedMails.length);
+
+    if (selectedMails.length === 0) {
+      console.log('❌ No mails selected');
+      return;
+    }
+
+    try {
+      console.log('🚀 Starting to move selected mails...');
+
+      // Move each selected mail to review
+      for (const mailId of selectedMails) {
+        console.log(`🔍 Looking for mail with ID: ${mailId}`);
+
+        // Try to find mail in filteredMails first, then in all expiredMails
+        let mail = filteredMails.find(m => (m.id || `${m.Subject}-${m.From}`) === mailId);
+
+        if (!mail) {
+          console.log(`📋 Mail not found in filtered mails, searching in all expired mails...`);
+          mail = allExpiredMails.find(m => (m.id || `${m.Subject}-${m.From}`) === mailId);
+        }
+
+        if (mail) {
+          console.log(`📧 Found mail: ${mail.Subject}`);
+          console.log('📤 Moving to review...');
+          await handleMoveToReview(mail);
+        } else {
+          console.log(`❌ Mail not found for ID: ${mailId}`);
+        }
+      }
+
+      // Clear selection
+      setSelectedMails([]);
+
+      console.log(`✅ Successfully moved ${selectedMails.length} mail(s) to Review section`);
+    } catch (error) {
+      console.error('❌ Error moving selected mails to review:', error);
     }
   };
 
@@ -155,7 +233,7 @@ const ExpiredMails = () => {
     await markMailAsRead(mail);
   };
 
-  // Filter mails based on search term and date range
+  // Filter and sort mails based on search term and date range
   const filteredMails = expiredMails.filter(mail => {
     // Search filter
     const matchesSearch = (mail.Subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,6 +250,20 @@ const ExpiredMails = () => {
     if (replyStatusFilter === "not_replied") matchesReplyStatus = !mail.isReplied;
 
     return matchesSearch && matchesDate && matchesReplyStatus;
+  }).sort((a, b) => {
+    // Sort by Date field - newest first
+    const getMailDate = (mail) => {
+      if (mail.Date && Array.isArray(mail.Date)) {
+        const [date, time] = mail.Date;
+        return new Date(`${date}T${time || '00:00'}`);
+      }
+      return new Date(0); // Very old date as fallback
+    };
+
+    const dateA = getMailDate(a);
+    const dateB = getMailDate(b);
+
+    return dateB - dateA; // Newest first (descending order)
   });
 
   // Pagination
@@ -262,8 +354,13 @@ const ExpiredMails = () => {
           <Col>
             <Card className="shadow">
               <CardBody>
-                <div className=" p-3 ">
-                  <DateFilterNew onDateChange={handleDateChange} />
+                <div className="d-flex justify-content-between align-items-center p-3">
+                  <div className="flex-grow-1">
+                    <DateFilterNew onDateChange={handleDateChange} />
+                  </div>
+                  <div className="ml-4">
+                    <CompactClock />
+                  </div>
                 </div>
               </CardBody>
             </Card>
@@ -290,9 +387,20 @@ const ExpiredMails = () => {
                       size="sm"
                       onClick={refreshGroups}
                       title="Refresh group data"
+                      className="mr-2"
                     >
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
+                    </Button>
+                    <Button
+                      color="warning"
+                      size="sm"
+                      onClick={handleMoveSelectedToReview}
+                      disabled={selectedMails.length === 0}
+                      title={`Move ${selectedMails.length} selected mail(s) to Review section`}
+                    >
+                      <i className="fas fa-arrow-down mr-1" />
+                      Move Selected ({selectedMails.length})
                     </Button>
                   </div>
                   <div className="col-lg-6 col-5">
@@ -378,6 +486,11 @@ const ExpiredMails = () => {
                 handleAssignMail={handleAssignMail}
                 handleMoveToReview={handleMoveToReview}
                 mailType="expired"
+                // Checkbox functionality
+                showCheckboxes={true}
+                selectedMails={selectedMails}
+                onSelectMail={handleSelectMail}
+                onSelectAll={handleSelectAll}
               />
               <CardFooter className="py-4">
                 <PaginationControls

@@ -147,12 +147,12 @@ const Index = (props) => {
               totalFiles={totalFiles}
             />
           </Col>
-          <Col xl="4">
+          {/* <Col xl="4">
             <AssignmentStats />
-          </Col>
+          </Col> */}
         </Row>
 
-        <Row>
+        <Row style={{marginTop:"100px"}}>
           <Col className="mb-5 mb-xl-0" xl="8">
             <MailStatisticsChart />
           </Col>
@@ -161,10 +161,10 @@ const Index = (props) => {
               <CardHeader className="bg-transparent">
                 <Row className="align-items-center">
                   <div className="col">
-                    <h6 className="text-uppercase text-muted ls-1 mb-1">
+                    <h2 className="text-uppercase text-muted ls-1 mb-1">
                       PIC Ranking
-                    </h6>
-                    <h2 className="mb-0">
+                    </h2>
+                    {/* <h2 className="mb-0">
                       {picRanking.topPIC ? (
                         <>
                           <i className="ni ni-badge text-warning mr-2"></i>
@@ -176,7 +176,7 @@ const Index = (props) => {
                     </h2>
                     <p className="text-muted mb-0">
                       <small>Top PIC with most overdue unreplied mails</small>
-                    </p>
+                    </p> */}
                   </div>
                 </Row>
               </CardHeader>
@@ -262,7 +262,7 @@ const Index = (props) => {
             </Card>
           </Col>
         </Row>
-        <Row className="mt-5">
+        {/* <Row className="mt-5">
           <Col className="mb-5 mb-xl-0" xl="8">
             <Card className="shadow">
               <CardHeader className="border-0">
@@ -364,7 +364,7 @@ const Index = (props) => {
               </Table>
             </Card>
           </Col>
-        </Row>
+        </Row> */}
 
         {/* Realtime Mail Monitor */}
         

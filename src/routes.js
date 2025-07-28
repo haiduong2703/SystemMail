@@ -32,6 +32,7 @@ import DateFilterDemo from "views/DateFilterDemo.js";
 import GroupManagement from "views/GroupManagement.js";
 import PaginationDemo from "views/PaginationDemo.js";
 import AdminTest from "views/AdminTest.jsx";
+import DecryptionTest from "views/DecryptionTest.js";
 
 var routes = [
   {
@@ -83,14 +84,21 @@ var routes = [
     component: <Server />,
     layout: "/admin",
   },
-  
-  
+  {
+    path: "/decryption-test",
+    name: "Decryption Test",
+    icon: "ni ni-lock-circle-open text-info",
+    component: <DecryptionTest />,
+    layout: "/admin",
+  },
+
   {
     path: "/user-profile",
     name: "User Profile",
     icon: "ni ni-single-02 text-yellow",
     component: <Profile />,
     layout: "/admin",
+    invisible: true,
   },
   {
     path: "/login",

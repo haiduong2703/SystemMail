@@ -147,49 +147,7 @@ const MailDetailsModal = ({
         <p><strong>Date Sent:</strong> {formatDate(selectedMail.Date)}</p>
 
         {/* File Information */}
-        <p><strong>File Information:</strong>
-          <div className="ml-3">
-            {selectedMail.id && (
-              <div>
-                <i className="fas fa-hashtag mr-1 text-muted"></i>
-                <small className="text-muted">ID: {selectedMail.id}</small>
-              </div>
-            )}
-            {selectedMail.fileName && (
-              <div>
-                <i className="fas fa-file mr-1 text-muted"></i>
-                <small className="text-muted">File: {selectedMail.fileName}</small>
-              </div>
-            )}
-            {selectedMail.filePath && (
-              <div>
-                <i className="fas fa-folder mr-1 text-muted"></i>
-                <small className="text-muted">Path: {truncateText ? truncateText(selectedMail.filePath, 50) : selectedMail.filePath}</small>
-              </div>
-            )}
-            <div>
-              <i className="fas fa-link mr-1 text-muted"></i>
-              <small className="text-muted">Mail Sequence ID:
-                <Badge color="info" size="sm" className="ml-1">
-                  {(() => {
-                    if (selectedMail.fileName) {
-                      const match = selectedMail.fileName.match(/(\d+)\.json$/);
-                      return match ? match[1] : 'N/A';
-                    } else if (selectedMail.id) {
-                      return selectedMail.id.toString();
-                    } else if (selectedMail.Subject) {
-                      return Math.abs(selectedMail.Subject.split('').reduce((a, b) => {
-                        a = ((a << 5) - a) + b.charCodeAt(0);
-                        return a & a;
-                      }, 0)).toString();
-                    }
-                    return '4171';
-                  })()}
-                </Badge>
-              </small>
-            </div>
-          </div>
-        </p>
+        
 
         {/* Date Move - only show for review mails */}
         {selectedMail.category === "ReviewMail" && selectedMail.dateMoved && (
@@ -235,11 +193,53 @@ const MailDetailsModal = ({
         {/* Summary Content */}
         {selectedMail.SummaryContent && (
           <>
-            <h5>Summary Content:</h5>
-            <p>{selectedMail.SummaryContent}</p>
+            <p><strong>Summary Content: </strong>{selectedMail.SummaryContent}</p>
           </>
         )}
-
+        <hr/>
+        <p><strong>File Information:</strong>
+          <div className="ml-3">
+            {selectedMail.id && (
+              <div>
+                <i className="fas fa-hashtag mr-1 text-muted"></i>
+                <small className="text-muted">ID: {selectedMail.id}</small>
+              </div>
+            )}
+            {selectedMail.fileName && (
+              <div>
+                <i className="fas fa-file mr-1 text-muted"></i>
+                <small className="text-muted">File: {selectedMail.fileName}</small>
+              </div>
+            )}
+            {selectedMail.filePath && (
+              <div>
+                <i className="fas fa-folder mr-1 text-muted"></i>
+                <small className="text-muted">Path: {truncateText ? truncateText(selectedMail.filePath, 50) : selectedMail.filePath}</small>
+              </div>
+            )}
+            <div>
+              <i className="fas fa-link mr-1 text-muted"></i>
+              <small className="text-muted">Mail Sequence ID:
+                <Badge color="info" size="sm" className="ml-1">
+                  {(() => {
+                    if (selectedMail.fileName) {
+                      const match = selectedMail.fileName.match(/(\d+)\.json$/);
+                      return match ? match[1] : 'N/A';
+                    } else if (selectedMail.id) {
+                      return selectedMail.id.toString();
+                    } else if (selectedMail.Subject) {
+                      return Math.abs(selectedMail.Subject.split('').reduce((a, b) => {
+                        a = ((a << 5) - a) + b.charCodeAt(0);
+                        return a & a;
+                      }, 0)).toString();
+                    }
+                    return '4171';
+                  })()}
+                </Badge>
+              </small>
+            </div>
+          </div>
+        </p>
         {/* Detailed Content */}
         {selectedMail.Body && (
           <>

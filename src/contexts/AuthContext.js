@@ -105,11 +105,44 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  // Update user profile
-  const updateUser = (updatedUserData) => {
-    const newUserData = { ...user, ...updatedUserData };
-    localStorage.setItem('userData', JSON.stringify(newUserData));
-    setUser(newUserData);
+  // Update user profile (for password change)
+  const updateUser = async (userData) => {
+    try {
+      // If this is a password change request
+      if (userData.currentPassword && userData.newPassword) {
+        console.log('🔄 Changing password for user:', userData.username);
+
+        const response = await fetch(`/api/users/${userData.username}/password`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentPassword: userData.currentPassword,
+            newPassword: userData.newPassword
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          console.log('✅ Password changed successfully');
+          return { success: true, message: result.message };
+        } else {
+          console.error('❌ Password change failed:', result.error);
+          return { success: false, error: result.error };
+        }
+      } else {
+        // Regular user data update
+        const newUserData = { ...user, ...userData };
+        localStorage.setItem('userData', JSON.stringify(newUserData));
+        setUser(newUserData);
+        return { success: true };
+      }
+    } catch (error) {
+      console.error('❌ Error in updateUser:', error);
+      return { success: false, error: error.message };
+    }
   };
 
   // Update user profile on server

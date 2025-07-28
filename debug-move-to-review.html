@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Move to Review</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .log { margin: 5px 0; padding: 5px; background-color: #f8f9fa; border-left: 3px solid #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug Move to Review Functionality</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Test Instructions:</h3>
+        <ol>
+            <li>Make sure React app is running on <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+            <li>Make sure Mail server is running on <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></li>
+            <li>Click the test buttons below to check functionality</li>
+            <li>Check browser console for detailed logs</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Step 1: Check Server Connection</h3>
+        <button onclick="testServerConnection()">Test Server Connection</button>
+        <div id="server-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📧 Step 2: Test Move to Review API</h3>
+        <button onclick="testMoveToReviewAPI()">Test Move to Review API</button>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🌐 Step 3: Check Frontend Integration</h3>
+        <p>Go to <a href="http://localhost:3000/admin/expired-mails" target="_blank">Expired Mails page</a> and:</p>
+        <ol>
+            <li>Open browser Developer Tools (F12)</li>
+            <li>Go to Console tab</li>
+            <li>Click on a mail's "..." menu</li>
+            <li>Click "Move to Review"</li>
+            <li>Check console for debug logs</li>
+        </ol>
+        <button onclick="openExpiredMails()">Open Expired Mails Page</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Step 4: Check Mail Data</h3>
+        <button onclick="checkMailData()">Check Mail Data</button>
+        <div id="mail-data-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Debug Logs</h3>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <div id="debug-logs"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('debug-logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log';
+            logEntry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            logsDiv.appendChild(logEntry);
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('debug-logs').innerHTML = '';
+        }
+
+        async function testServerConnection() {
+            const resultDiv = document.getElementById('server-result');
+            log('🔍 Testing server connection...');
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/mail-stats');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Server is running!</h4>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('✅ Server connection successful');
+                    return true;
+                } else {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Server connection failed!</h4>
+                        <p>${error.message}</p>
+                        <p>Make sure mail server is running: <code>cd mail-server && node server.js</code></p>
+                    </div>
+                `;
+                log(`❌ Server connection failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testMoveToReviewAPI() {
+            const resultDiv = document.getElementById('api-result');
+            log('🧪 Testing Move to Review API...');
+            
+            const testMail = {
+                id: "debug-test-mail",
+                Subject: "Debug Test Mail",
+                From: "debug@test.com",
+                Type: "To",
+                Date: ["2025-01-13", "14:30"],
+                SummaryContent: "Test mail for debugging move to review",
+                Body: "<p>Debug test content</p>",
+                isRead: false,
+                category: "ExpiredMail",
+                status: "expired"
+            };
+
+            try {
+                const response = await fetch('http://localhost:3001/api/move-to-review', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mailId: testMail.id,
+                        mailData: testMail
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Move to Review API works!</h4>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('✅ Move to Review API successful');
+                } else {
+                    throw new Error(data.error || 'API call failed');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Move to Review API failed!</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`❌ Move to Review API failed: ${error.message}`);
+            }
+        }
+
+        async function checkMailData() {
+            const resultDiv = document.getElementById('mail-data-result');
+            log('📊 Checking mail data...');
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/mails');
+                
+                if (response.ok) {
+                    const mails = await response.json();
+                    const expiredMails = mails.filter(mail => 
+                        mail.category === 'ExpiredMail' || 
+                        (mail.category === 'QuaHan' && mail.status === 'expired')
+                    );
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>📧 Mail Data Summary:</h4>
+                            <p><strong>Total mails:</strong> ${mails.length}</p>
+                            <p><strong>Expired mails:</strong> ${expiredMails.length}</p>
+                            <h5>Sample expired mail structure:</h5>
+                            <pre>${expiredMails.length > 0 ? JSON.stringify(expiredMails[0], null, 2) : 'No expired mails found'}</pre>
+                        </div>
+                    `;
+                    log(`📊 Found ${mails.length} total mails, ${expiredMails.length} expired mails`);
+                } else {
+                    throw new Error(`Failed to fetch mail data: ${response.status}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Failed to check mail data!</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`❌ Failed to check mail data: ${error.message}`);
+            }
+        }
+
+        function openExpiredMails() {
+            window.open('http://localhost:3000/admin/expired-mails', '_blank');
+            log('🌐 Opened Expired Mails page in new tab');
+        }
+
+        // Auto-run server connection test on page load
+        window.onload = function() {
+            log('🚀 Debug page loaded');
+            testServerConnection();
+        };
+    </script>
+</body>
+</html>

@@ -23,12 +23,6 @@ import {
   CardHeader,
   CardBody,
   CardFooter,
-  DropdownMenu,
-  DropdownItem,
-  UncontrolledDropdown,
-  DropdownToggle,
-  Media,
-  Table,
   Container,
   Row,
   Col,
@@ -39,6 +33,12 @@ import {
   InputGroupText,
   FormGroup,
   Label,
+  Table,
+  Media,
+  UncontrolledDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
   Modal,
   ModalHeader,
   ModalBody,
@@ -57,6 +57,7 @@ import MailTable from "components/MailTable/MailTable.js";
 import { useMailContext } from 'contexts/MailContext.js';
 import { useGroupContext } from 'contexts/GroupContext.js';
 import AssignModal from "components/AssignModal.js";
+import CompactClock from "components/RealtimeClock/CompactClock.js";
 
 const ReviewMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,13 +67,15 @@ const ReviewMails = () => {
   const [dateFilterEnd, setDateFilterEnd] = useState(null);
   const [activeQuickFilter, setActiveQuickFilter] = useState("all");
   const [replyStatusFilter, setReplyStatusFilter] = useState("all");
+  const [originalStatusFilter, setOriginalStatusFilter] = useState("all"); // all, valid, expired
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedMail, setSelectedMail] = useState(null);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [mailToAssign, setMailToAssign] = useState(null);
+  const [selectedMails, setSelectedMails] = useState([]); // Selected mails for bulk actions
 
   const reviewMails = useReviewMails();
-  const { mails, formatDate: useMailContextFormatDate, handleSelectMail, selectedMail: useMailContextSelectedMail, refreshMails } = useMailContext();
+  const { mails, formatDate: useMailContextFormatDate, handleSelectMail: useMailContextSelectMail, selectedMail: useMailContextSelectedMail, refreshMails } = useMailContext();
   const { markMailAsRead } = useMarkMailRead();
   const { getGroupInfo, refreshGroups } = useGroupContext();
 
@@ -80,6 +83,35 @@ const ReviewMails = () => {
   const handleAssignMail = (mail) => {
     setMailToAssign(mail);
     setAssignModalOpen(true);
+  };
+
+  // Handle checkbox selection
+  const handleSelectMail = (mailId, isSelected) => {
+    console.log('☑️ ReviewMails handleSelectMail called:', { mailId, isSelected });
+
+    if (isSelected) {
+      setSelectedMails(prev => {
+        const newSelection = [...prev, mailId];
+        console.log('✅ Added to selection:', newSelection);
+        return newSelection;
+      });
+    } else {
+      setSelectedMails(prev => {
+        const newSelection = prev.filter(id => id !== mailId);
+        console.log('❌ Removed from selection:', newSelection);
+        return newSelection;
+      });
+    }
+  };
+
+  // Handle select all checkbox
+  const handleSelectAll = (isSelected) => {
+    if (isSelected) {
+      const allMailIds = currentMails.map(mail => mail.id || `${mail.Subject}-${mail.From}`);
+      setSelectedMails(allMailIds);
+    } else {
+      setSelectedMails([]);
+    }
   };
 
   const handleAssignSuccess = (updatedMail) => {
@@ -116,6 +148,75 @@ const ReviewMails = () => {
     }
   };
 
+  // Handle move selected mails back to original location
+  const handleMoveSelectedReturn = async () => {
+    console.log('🔄 handleMoveSelectedReturn called');
+    console.log('📧 Selected mails:', selectedMails);
+    console.log('📊 Selected count:', selectedMails.length);
+
+    if (selectedMails.length === 0) {
+      console.log('❌ No mails selected');
+      return;
+    }
+
+    try {
+      console.log('🚀 Starting to move selected mails back...');
+
+      // Move each selected mail back to original location
+      for (const mailId of selectedMails) {
+        console.log(`🔍 Looking for mail with ID: ${mailId}`);
+
+        // Try to find mail in filteredMails first, then in all reviewMails
+        let mail = filteredMails.find(m => (m.id || `${m.Subject}-${m.From}`) === mailId);
+
+        if (!mail) {
+          console.log(`📋 Mail not found in filtered mails, searching in all review mails...`);
+          mail = reviewMails.find(m => (m.id || `${m.Subject}-${m.From}`) === mailId);
+        }
+
+        if (mail) {
+          console.log(`📧 Found mail: ${mail.Subject}`);
+          console.log(`📂 Original category: ${mail.originalCategory}`);
+          console.log(`📊 Original status: ${mail.originalStatus}`);
+          console.log('📤 Moving back to original location...');
+
+          // Call API to move mail back
+          const response = await fetch('http://localhost:3001/api/move-back-from-review', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              mailId: mail.id,
+              mailData: mail
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`✅ Mail "${mail.Subject}" moved back successfully`);
+          } else {
+            console.error(`❌ Failed to move mail "${mail.Subject}" back`);
+          }
+        } else {
+          console.log(`❌ Mail not found for ID: ${mailId}`);
+        }
+      }
+
+      // Clear selection
+      setSelectedMails([]);
+
+      // Refresh mail data
+      if (refreshMails) {
+        refreshMails();
+      }
+
+      console.log(`✅ Successfully moved ${selectedMails.length} mail(s) back to original location`);
+    } catch (error) {
+      console.error('❌ Error moving selected mails back:', error);
+    }
+  };
+
   // Helper function to truncate text
   const truncateText = (text, maxLength) => {
     if (!text) return '';
@@ -138,7 +239,7 @@ const ReviewMails = () => {
     await markMailAsRead(mail);
   };
 
-  // Filter mails based on search term and date range
+  // Filter and sort mails based on search term and date range
   const filteredMails = reviewMails.filter(mail => {
     // Search filter
     const matchesSearch = (mail.Subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -154,7 +255,44 @@ const ReviewMails = () => {
     if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
     if (replyStatusFilter === "not_replied") matchesReplyStatus = !mail.isReplied;
 
-    return matchesSearch && matchesDate && matchesReplyStatus;
+    // Original status filter
+    let matchesOriginalStatus = true;
+    if (originalStatusFilter === "valid") {
+      // Check if mail was originally valid
+      if (mail.originalCategory) {
+        matchesOriginalStatus = mail.originalCategory === 'DungHan';
+      } else {
+        matchesOriginalStatus = mail.isExpired === false;
+      }
+    } else if (originalStatusFilter === "expired") {
+      // Check if mail was originally expired
+      if (mail.originalCategory) {
+        matchesOriginalStatus = mail.originalCategory === 'QuaHan';
+      } else {
+        matchesOriginalStatus = mail.isExpired === true;
+      }
+    }
+
+    return matchesSearch && matchesDate && matchesReplyStatus && matchesOriginalStatus;
+  }).sort((a, b) => {
+    // Sort by dateMoved (when moved to review) - newest first
+    const getDateMoved = (mail) => {
+      if (mail.dateMoved && Array.isArray(mail.dateMoved)) {
+        const [date, time] = mail.dateMoved;
+        return new Date(`${date}T${time || '00:00'}`);
+      }
+      // Fallback to regular Date if dateMoved not available
+      if (mail.Date && Array.isArray(mail.Date)) {
+        const [date, time] = mail.Date;
+        return new Date(`${date}T${time || '00:00'}`);
+      }
+      return new Date(0); // Very old date as fallback
+    };
+
+    const dateA = getDateMoved(a);
+    const dateB = getDateMoved(b);
+
+    return dateB - dateA; // Newest first (descending order)
   });
 
   // Pagination
@@ -190,6 +328,11 @@ const ReviewMails = () => {
     setCurrentPage(1);
   };
 
+  const handleOriginalStatusChange = (status) => {
+    setOriginalStatusFilter(status);
+    setCurrentPage(1);
+  };
+
   const getTypeColor = (type) => {
     switch (type) {
       case "To": return "success";
@@ -213,8 +356,13 @@ const ReviewMails = () => {
           <Col>
             <Card className="shadow">
               <CardBody>
-                <div className=" p-3 ">
-                  <DateFilterNew onDateChange={handleDateChange} />
+                <div className="d-flex justify-content-between align-items-center p-3">
+                  <div className="flex-grow-1">
+                    <DateFilterNew onDateChange={handleDateChange} />
+                  </div>
+                  <div className="ml-4">
+                    <CompactClock />
+                  </div>
                 </div>
               </CardBody>
             </Card>
@@ -239,9 +387,20 @@ const ReviewMails = () => {
                       size="sm"
                       onClick={refreshGroups}
                       title="Refresh group data"
+                      className="mr-2"
                     >
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
+                    </Button>
+                    <Button
+                      color="warning"
+                      size="sm"
+                      onClick={handleMoveSelectedReturn}
+                      disabled={selectedMails.length === 0}
+                      title={`Move ${selectedMails.length} selected mail(s) back to original location`}
+                    >
+                      <i className="fas fa-undo mr-1" />
+                      Move Return ({selectedMails.length})
                     </Button>
                   </div>
                   <div className="col-lg-6 col-5">
@@ -258,6 +417,47 @@ const ReviewMails = () => {
                         </InputGroupText>
                       </InputGroupAddon>
                     </InputGroup>
+                  </div>
+                </Row>
+                <Row className="align-items-center mt-3">
+                  <div className="col">
+                    <div className="btn-group" role="group">
+                      <Button
+                        color={originalStatusFilter === "all" ? "primary" : "secondary"}
+                        onClick={() => handleOriginalStatusChange("all")}
+                        size="sm"
+                        className="mr-1"
+                      >
+                        All ({reviewMails.length})
+                      </Button>
+                      <Button
+                        color={originalStatusFilter === "valid" ? "success" : "secondary"}
+                        onClick={() => handleOriginalStatusChange("valid")}
+                        size="sm"
+                        className="mr-1"
+                      >
+                        Valid ({reviewMails.filter(mail => {
+                          if (mail.originalCategory) {
+                            return mail.originalCategory === 'DungHan';
+                          } else {
+                            return mail.isExpired === false;
+                          }
+                        }).length})
+                      </Button>
+                      <Button
+                        color={originalStatusFilter === "expired" ? "danger" : "secondary"}
+                        onClick={() => handleOriginalStatusChange("expired")}
+                        size="sm"
+                      >
+                        Expired ({reviewMails.filter(mail => {
+                          if (mail.originalCategory) {
+                            return mail.originalCategory === 'QuaHan';
+                          } else {
+                            return mail.isExpired === true;
+                          }
+                        }).length})
+                      </Button>
+                    </div>
                   </div>
                 </Row>
                 <Row className="align-items-center mt-3">
@@ -301,6 +501,11 @@ const ReviewMails = () => {
                 handleAssignMail={handleAssignMail}
                 handleMoveBack={handleMoveBack}
                 mailType="review"
+                // Checkbox functionality
+                showCheckboxes={true}
+                selectedMails={selectedMails}
+                onSelectMail={handleSelectMail}
+                onSelectAll={handleSelectAll}
               />
               <CardFooter className="py-4">
                 <PaginationControls

@@ -282,9 +282,9 @@ const Sidebar = (props) => {
           {/* Divider */}
           <hr className="my-3" />
           {/* Realtime Clock */}
-          <div className="px-3 mb-3">
+          {/* <div className="px-3 mb-3">
             <RealtimeClock />
-          </div>
+          </div> */}
 
         </Collapse>
       </Container>

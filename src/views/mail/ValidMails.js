@@ -42,10 +42,9 @@ import {
   InputGroupText,
   FormGroup,
   Label,
-
   Alert, // Added Alert
 } from "reactstrap";
-import io from 'socket.io-client';
+import io from "socket.io-client";
 // core components
 import DateFilterNew from "components/DateFilter/DateFilterNew.js";
 import { formatDate, filterMailsByDateRange } from "utils/mailUtils.js";
@@ -53,12 +52,16 @@ import { useValidMails } from "contexts/MailContext.js";
 import { useMarkMailRead } from "hooks/useMarkMailRead.js";
 import MailListBadge from "components/MailListBadge/MailListBadge.js";
 import CompactHeader from "components/Headers/CompactHeader.js";
-import { useMailContext } from 'contexts/MailContext.js';
-import { useGroupContext } from 'contexts/GroupContext.js';
+import { useMailContext } from "contexts/MailContext.js";
+import { useGroupContext } from "contexts/GroupContext.js";
 import AssignModal from "components/AssignModal.js";
+import CompactClock from "components/RealtimeClock/CompactClock.js";
 import PaginationControls from "components/PaginationControls/PaginationControls.js";
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
+import useDecryptedMails from "hooks/useDecryptedMails.js";
+import DecryptionStatus from "components/DecryptionStatus/DecryptionStatus.js";
+import MailDecryptionInfo from "components/MailDecryptionInfo/MailDecryptionInfo.js";
 
 const ValidMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,9 +79,27 @@ const ValidMails = () => {
   const [selectedMails, setSelectedMails] = useState([]); // Selected mails for bulk actions
 
   const validMails = useValidMails();
-  const { mails, formatDate: useMailContextFormatDate, selectedMail: useMailContextSelectedMail, refreshMails } = useMailContext();
+  const {
+    mails,
+    formatDate: useMailContextFormatDate,
+    selectedMail: useMailContextSelectedMail,
+    refreshMails,
+  } = useMailContext();
   const { markMailAsRead } = useMarkMailRead();
   const { getGroupInfo, refreshGroups } = useGroupContext();
+
+  // Decryption functionality
+  const {
+    decryptedMails,
+    isDecrypting,
+    decryptionProgress,
+    decryptionErrors,
+    hasErrors,
+    decryptAllMails,
+    clearErrors,
+    totalMails,
+    decryptedCount,
+  } = useDecryptedMails(validMails, true); // Auto-decrypt enabled
 
   // Handle assign mail
   const handleAssignMail = (mail) => {
@@ -87,7 +108,7 @@ const ValidMails = () => {
   };
 
   const handleAssignSuccess = (updatedMail) => {
-    console.log('Mail assigned successfully:', updatedMail);
+    console.log("Mail assigned successfully:", updatedMail);
 
     // Refresh mail data to show updated assignment
     if (refreshMails) {
@@ -96,9 +117,13 @@ const ValidMails = () => {
 
     // Show success message
     setExpiredMovedAlert({
-      type: 'success',
-      message: `Mail assigned successfully to ${updatedMail.assignedTo?.picName || updatedMail.assignedTo?.groupName || 'assignee'}`,
-      timestamp: new Date()
+      type: "success",
+      message: `Mail assigned successfully to ${
+        updatedMail.assignedTo?.picName ||
+        updatedMail.assignedTo?.groupName ||
+        "assignee"
+      }`,
+      timestamp: new Date(),
     });
 
     // Auto-hide alert after 3 seconds
@@ -110,16 +135,18 @@ const ValidMails = () => {
   // Handle checkbox selection
   const handleSelectMail = (mailId, isSelected) => {
     if (isSelected) {
-      setSelectedMails(prev => [...prev, mailId]);
+      setSelectedMails((prev) => [...prev, mailId]);
     } else {
-      setSelectedMails(prev => prev.filter(id => id !== mailId));
+      setSelectedMails((prev) => prev.filter((id) => id !== mailId));
     }
   };
 
   // Handle select all checkbox
   const handleSelectAll = (isSelected) => {
     if (isSelected) {
-      const allMailIds = currentMails.map(mail => mail.id || `${mail.Subject}-${mail.From}`);
+      const allMailIds = currentMails.map(
+        (mail) => mail.id || `${mail.Subject}-${mail.From}`
+      );
       setSelectedMails(allMailIds);
     } else {
       setSelectedMails([]);
@@ -129,23 +156,23 @@ const ValidMails = () => {
   // Handle move mail to review
   const handleMoveToReview = async (mail) => {
     try {
-      const response = await fetch('http://localhost:3001/api/move-to-review', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3001/api/move-to-review", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           mailId: mail.id || `${mail.Subject}-${mail.From}`,
-          mailData: mail
-        })
+          mailData: mail,
+        }),
       });
 
       if (response.ok) {
         const result = await response.json();
         setExpiredMovedAlert({
-          type: 'success',
+          type: "success",
           message: `Mail "${mail.Subject}" has been moved to Review section.`,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
 
         // Auto-hide alert after 3 seconds
@@ -158,14 +185,14 @@ const ValidMails = () => {
           refreshMails();
         }
       } else {
-        throw new Error('Failed to move mail to review');
+        throw new Error("Failed to move mail to review");
       }
     } catch (error) {
-      console.error('Error moving mail to review:', error);
+      console.error("Error moving mail to review:", error);
       setExpiredMovedAlert({
-        type: 'danger',
-        message: 'Failed to move mail to review section. Please try again.',
-        timestamp: new Date()
+        type: "danger",
+        message: "Failed to move mail to review section. Please try again.",
+        timestamp: new Date(),
       });
 
       // Auto-hide alert after 3 seconds
@@ -179,33 +206,36 @@ const ValidMails = () => {
   const handleMoveSelectedToExpired = async () => {
     if (selectedMails.length === 0) {
       setExpiredMovedAlert({
-        type: 'warning',
-        message: 'Please select mails to move to expired section.',
-        timestamp: new Date()
+        type: "warning",
+        message: "Please select mails to move to expired section.",
+        timestamp: new Date(),
       });
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/move-selected-to-expired', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          selectedMailIds: selectedMails
-        })
-      });
+      const response = await fetch(
+        "http://localhost:3001/api/move-selected-to-expired",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            selectedMailIds: selectedMails,
+          }),
+        }
+      );
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Selected mails moved successfully:', result);
+        console.log("Selected mails moved successfully:", result);
 
         // Show success alert
         setExpiredMovedAlert({
-          type: 'success',
+          type: "success",
           message: `Successfully moved ${selectedMails.length} mail(s) to Expired section`,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
 
         // Clear selection
@@ -216,34 +246,35 @@ const ValidMails = () => {
           refreshMails();
         }
       } else {
-        console.error('Failed to move selected mails');
+        console.error("Failed to move selected mails");
         setExpiredMovedAlert({
-          type: 'danger',
-          message: 'Failed to move selected mails. Please try again.',
-          timestamp: new Date()
+          type: "danger",
+          message: "Failed to move selected mails. Please try again.",
+          timestamp: new Date(),
         });
       }
     } catch (error) {
-      console.error('Error moving selected mails:', error);
+      console.error("Error moving selected mails:", error);
       setExpiredMovedAlert({
-        type: 'danger',
-        message: 'Error occurred while moving selected mails. Please try again.',
-        timestamp: new Date()
+        type: "danger",
+        message:
+          "Error occurred while moving selected mails. Please try again.",
+        timestamp: new Date(),
       });
     }
   };
 
   // Socket connection for real-time updates
   useEffect(() => {
-    const socket = io('http://localhost:3001');
+    const socket = io("http://localhost:3001");
 
     // Listen for mail updates
-    socket.on('mailsUpdated', (data) => {
-      if (data.type === 'expired_moved' && data.count > 0) {
+    socket.on("mailsUpdated", (data) => {
+      if (data.type === "expired_moved" && data.count > 0) {
         setExpiredMovedAlert({
-          type: 'info',
+          type: "info",
           message: `${data.count} mail(s) đã quá hạn và được chuyển sang phần "Expired Mails"`,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
 
         // Auto-hide alert after 5 seconds
@@ -266,7 +297,7 @@ const ValidMails = () => {
 
   // Helper function to truncate text
   const truncateText = (text, maxLength) => {
-    if (!text) return '';
+    if (!text) return "";
     if (text.length <= maxLength) {
       return text;
     }
@@ -324,13 +355,15 @@ const ValidMails = () => {
         deadlineDate.setHours(23, 59, 59, 999); // End of Monday
       } else {
         // For weekdays (Monday-Friday), use 24-hour deadline
-        deadlineDate = new Date(mailDate.getTime() + (24 * 60 * 60 * 1000));
+        deadlineDate = new Date(mailDate.getTime() + 24 * 60 * 60 * 1000);
       }
 
-      const hoursRemaining = Math.ceil((deadlineDate - currentDate) / (1000 * 60 * 60));
+      const hoursRemaining = Math.ceil(
+        (deadlineDate - currentDate) / (1000 * 60 * 60)
+      );
       return hoursRemaining > 0 ? hoursRemaining : 0;
     } catch (error) {
-      console.error('Error calculating hours remaining:', error);
+      console.error("Error calculating hours remaining:", error);
       return 0;
     }
   };
@@ -340,27 +373,47 @@ const ValidMails = () => {
     return getHoursRemaining(dateArray) === 0;
   };
 
-  // Filter mails based on search term and date range
-  const filteredMails = validMails.filter(mail => {
-    // Search filter
-    const matchesSearch = (mail.Subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (mail.From || '').toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter and sort mails based on search term and date range
+  const filteredMails = decryptedMails
+    .filter((mail) => {
+      // Search filter
+      const matchesSearch =
+        (mail.Subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (mail.From || "").toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Date filter
-    const matchesDate = dateFilterStart || dateFilterEnd
-      ? filterMailsByDateRange([mail], dateFilterStart, dateFilterEnd).length > 0
-      : true;
+      // Date filter
+      const matchesDate =
+        dateFilterStart || dateFilterEnd
+          ? filterMailsByDateRange([mail], dateFilterStart, dateFilterEnd)
+              .length > 0
+          : true;
 
-    // Reply status filter
-    let matchesReplyStatus = true;
-    if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
-    if (replyStatusFilter === "not_replied") matchesReplyStatus = !mail.isReplied;
+      // Reply status filter
+      let matchesReplyStatus = true;
+      if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
+      if (replyStatusFilter === "not_replied")
+        matchesReplyStatus = !mail.isReplied;
 
-    // Note: Removed automatic expiry filter - mails stay in valid section until manually moved
-    // const withinDeadline = !isMailExpired(mail.Date);
+      // Note: Removed automatic expiry filter - mails stay in valid section until manually moved
+      // const withinDeadline = !isMailExpired(mail.Date);
 
-    return matchesSearch && matchesDate && matchesReplyStatus;
-  });
+      return matchesSearch && matchesDate && matchesReplyStatus;
+    })
+    .sort((a, b) => {
+      // Sort by Date field - newest first
+      const getMailDate = (mail) => {
+        if (mail.Date && Array.isArray(mail.Date)) {
+          const [date, time] = mail.Date;
+          return new Date(`${date}T${time || "00:00"}`);
+        }
+        return new Date(0); // Very old date as fallback
+      };
+
+      const dateA = getMailDate(a);
+      const dateB = getMailDate(b);
+
+      return dateB - dateA; // Newest first (descending order)
+    });
 
   // Pagination
   const totalPages = Math.ceil(filteredMails.length / itemsPerPage);
@@ -369,24 +422,24 @@ const ValidMails = () => {
   const currentMails = filteredMails.slice(startIndex, endIndex);
 
   // Debug logging
-  console.log('🔍 Pagination state:', {
+  console.log("🔍 Pagination state:", {
     currentPage,
     totalPages,
     startIndex,
     endIndex,
     filteredMailsLength: filteredMails.length,
     currentMailsLength: currentMails.length,
-    currentMailsIds: currentMails.map(m => m.id).slice(0, 3) // First 3 IDs
+    currentMailsIds: currentMails.map((m) => m.id).slice(0, 3), // First 3 IDs
   });
 
   const handlePageChange = (page) => {
-    console.log('📄 Page change:', { from: currentPage, to: page });
-    console.log('📊 Pagination debug:', {
+    console.log("📄 Page change:", { from: currentPage, to: page });
+    console.log("📊 Pagination debug:", {
       totalItems: filteredMails.length,
       itemsPerPage,
       totalPages,
       newStartIndex: (page - 1) * itemsPerPage,
-      newEndIndex: (page - 1) * itemsPerPage + itemsPerPage
+      newEndIndex: (page - 1) * itemsPerPage + itemsPerPage,
     });
     setCurrentPage(page);
   };
@@ -394,6 +447,27 @@ const ValidMails = () => {
   const handleItemsPerPageChange = (newItemsPerPage) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1); // Reset về trang đầu khi thay đổi số items
+  };
+
+  // Helper function to get filtered count for buttons
+  const getFilteredCount = (replyFilter = null) => {
+    return decryptedMails.filter((mail) => {
+      const matchesSearch =
+        (mail.Subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (mail.From || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDate =
+        dateFilterStart || dateFilterEnd
+          ? filterMailsByDateRange([mail], dateFilterStart, dateFilterEnd)
+              .length > 0
+          : true;
+      const matchesReply =
+        replyFilter === null
+          ? true
+          : replyFilter === "replied"
+          ? mail.isReplied
+          : !mail.isReplied;
+      return matchesSearch && matchesDate && matchesReply;
+    }).length;
   };
 
   // Handle date filter changes for new DateFilter
@@ -411,14 +485,16 @@ const ValidMails = () => {
 
   const getTypeColor = (type) => {
     switch (type) {
-      case "To": return "success";
-      case "CC": return "warning";
-      case "BCC": return "info";
-      default: return "secondary";
+      case "To":
+        return "success";
+      case "CC":
+        return "warning";
+      case "BCC":
+        return "info";
+      default:
+        return "secondary";
     }
   };
-
-
 
   return (
     <>
@@ -429,12 +505,14 @@ const ValidMails = () => {
       />
       {/* Page content */}
       <Container className="mt--5 mail-page mail-system compact-layout" fluid>
-
         {/* Alert for expired mails moved */}
         {expiredMovedAlert && (
           <Row className="mb-3">
             <Col>
-              <Alert color={expiredMovedAlert.type} className="alert-dismissible fade show">
+              <Alert
+                color={expiredMovedAlert.type}
+                className="alert-dismissible fade show"
+              >
                 <span className="alert-inner--icon">
                   <i className="ni ni-notification-70" />
                 </span>
@@ -453,14 +531,42 @@ const ValidMails = () => {
           </Row>
         )}
 
+        {/* Decryption Status */}
+        <Row>
+          <Col>
+            <DecryptionStatus
+              isDecrypting={isDecrypting}
+              decryptionProgress={decryptionProgress}
+              decryptionErrors={decryptionErrors}
+              totalMails={totalMails}
+              decryptedCount={decryptedCount}
+              onRetryDecryption={decryptAllMails}
+              onClearErrors={clearErrors}
+              compact={true}
+            />
+            <MailDecryptionInfo
+              originalMails={validMails}
+              decryptedMails={decryptedMails}
+              decryptionErrors={decryptionErrors}
+              isDecrypting={isDecrypting}
+              totalMails={totalMails}
+              decryptedCount={decryptedCount}
+            />
+          </Col>
+        </Row>
 
         {/* Date Filter */}
         <Row className="mb-4">
           <Col>
             <Card className="shadow">
               <CardBody>
-                <div className=" p-3 ">
-                  <DateFilterNew onDateChange={handleDateChange} />
+                <div className="d-flex justify-content-between align-items-center p-3">
+                  <div className="flex-grow-1">
+                    <DateFilterNew onDateChange={handleDateChange} />
+                  </div>
+                  <div className="ml-4">
+                    <CompactClock />
+                  </div>
                 </div>
               </CardBody>
             </Card>
@@ -521,25 +627,35 @@ const ValidMails = () => {
                   <div className="col">
                     <ButtonGroup>
                       <Button
-                        color={replyStatusFilter === "all" ? "primary" : "secondary"}
+                        color={
+                          replyStatusFilter === "all" ? "primary" : "secondary"
+                        }
                         onClick={() => setReplyStatusFilter("all")}
                         size="sm"
                       >
-                        All ({filteredMails.length})
+                        All ({getFilteredCount()})
                       </Button>
                       <Button
-                        color={replyStatusFilter === "not_replied" ? "warning" : "secondary"}
+                        color={
+                          replyStatusFilter === "not_replied"
+                            ? "warning"
+                            : "secondary"
+                        }
                         onClick={() => setReplyStatusFilter("not_replied")}
                         size="sm"
                       >
-                        Non-Reply ({filteredMails.filter(m => !m.isReplied).length})
+                        Non-Reply ({getFilteredCount("not_replied")})
                       </Button>
                       <Button
-                        color={replyStatusFilter === "replied" ? "success" : "secondary"}
+                        color={
+                          replyStatusFilter === "replied"
+                            ? "success"
+                            : "secondary"
+                        }
                         onClick={() => setReplyStatusFilter("replied")}
                         size="sm"
                       >
-                        Replied ({filteredMails.filter(m => m.isReplied).length})
+                        Replied ({getFilteredCount("replied")})
                       </Button>
                     </ButtonGroup>
                   </div>
@@ -552,9 +668,15 @@ const ValidMails = () => {
                         type="select"
                         id="itemsPerPage"
                         value={itemsPerPage}
-                        onChange={(e) => handleItemsPerPageChange(parseInt(e.target.value))}
+                        onChange={(e) =>
+                          handleItemsPerPageChange(parseInt(e.target.value))
+                        }
                         className="form-control-sm"
-                        style={{ width: 'auto', display: 'inline-block', marginLeft: '10px' }}
+                        style={{
+                          width: "auto",
+                          display: "inline-block",
+                          marginLeft: "10px",
+                        }}
                       >
                         <option value={5}>5</option>
                         <option value={10}>10</option>
@@ -567,7 +689,9 @@ const ValidMails = () => {
                   </div>
                   <div className="col-auto">
                     <small className="text-muted">
-                      Showing {startIndex + 1}-{Math.min(endIndex, filteredMails.length)} of {filteredMails.length} items
+                      Showing {startIndex + 1}-
+                      {Math.min(endIndex, filteredMails.length)} of{" "}
+                      {filteredMails.length} items
                     </small>
                   </div>
                 </Row>

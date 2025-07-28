@@ -34,7 +34,9 @@
     "build:scss": "npm run compile:scss && npm run minify:scss && npm run map:scss",
     "setup:classifyMail": "node setup-classifyMail.js",
     "start:server": "cd mail-server && npm start",
-    "dev": "concurrently \"npm run start:server\" \"npm start\""
+    "dev": "concurrently \"npm run start:server\" \"npm start\"",
+    "test:decrypt": "node test-decryption.js",
+    "dev:decrypt": "npm run test:decrypt && npm run dev"
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -48,9 +50,11 @@
   "dependencies": {
     "@fortawesome/fontawesome-free": "6.5.1",
     "ajv": "^8.16.0",
+    "antd": "^5.26.5",
     "bootstrap": "4.6.2",
     "chart.js": "2.9.4",
     "classnames": "2.3.2",
+    "dayjs": "^1.11.13",
     "moment": "2.29.4",
     "nouislider": "15.4.0",
     "react": "18.2.0",

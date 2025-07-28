@@ -60,20 +60,19 @@ export const useRealtimeMailServer = () => {
 
     socket.on('newMailsDetected', (data) => {
       console.log('🆕 New mails detected:', data);
-      setReloadStatus(data.shouldReload);
-      
-      // Show notification
-      if (window.Notification && Notification.permission === 'granted') {
-        new Notification('📧 New Mail Received!', {
-          body: `You have ${data.count} new mail(s)`,
-          icon: '/favicon.ico',
-          tag: 'new-mail'
-        });
-      }
-      
-      // Chỉ cập nhật stats, không tự động reload UI
-      // User có thể manually reload bằng cách click button
-      console.log('📊 Mail stats will be updated automatically, no auto-reload triggered');
+      // Auto-reload disabled for performance
+      // setReloadStatus(data.shouldReload);
+
+      // Show notification - DISABLED
+      // if (window.Notification && Notification.permission === 'granted') {
+      //   new Notification('📧 New Mail Received!', {
+      //     body: `You have ${data.count} new mail(s)`,
+      //     icon: '/favicon.ico',
+      //     tag: 'new-mail'
+      //   });
+      // }
+
+      console.log('📊 Auto-reload disabled for performance');
     });
 
     socket.on('reloadStatusChanged', (data) => {
