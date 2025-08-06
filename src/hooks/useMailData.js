@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { mockMails } from '../data/mockMails.js';
-import io from 'socket.io-client';
+import { useState, useEffect } from "react";
+import { mockMails } from "../data/mockMails.js";
+import io from "socket.io-client";
+import { API_BASE_URL } from "constants/api.js";
 
 // Custom hook để load dữ liệu mail từ API server
 export const useMailData = () => {
@@ -16,10 +17,10 @@ export const useMailData = () => {
     setError(null);
 
     try {
-      console.log('🔄 Đang tải dữ liệu mail từ C:\\classifyMail\\...');
+      console.log(`🔄 Đang tải dữ liệu mail từ ${API_BASE_URL}...`);
 
       // Load dữ liệu từ API server
-      const response = await fetch('http://localhost:3001/api/mails');
+      const response = await fetch(`${API_BASE_URL}/api/mails`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -30,15 +31,20 @@ export const useMailData = () => {
       if (loadedMails && loadedMails.length > 0) {
         setMails(loadedMails);
         setLoadedFromFiles(true);
-        console.log(`✅ Đã load ${loadedMails.length} mail từ C:\\classifyMail\\`);
+        console.log(
+          `✅ Đã load ${loadedMails.length} mail từ C:\\classifyMail\\`
+        );
       } else {
         // Fallback nếu không có file nào
-        console.log('⚠️ Không tìm thấy file JSON, sử dụng fallback data');
+        console.log("⚠️ Không tìm thấy file JSON, sử dụng fallback data");
         setMails(mockMails);
         setLoadedFromFiles(false);
       }
     } catch (err) {
-      console.error('❌ Lỗi khi tải dữ liệu mail từ server, sử dụng fallback data:', err);
+      console.error(
+        "❌ Lỗi khi tải dữ liệu mail từ server, sử dụng fallback data:",
+        err
+      );
       setError(err.message);
       setMails(mockMails);
       setLoadedFromFiles(false);
@@ -51,26 +57,26 @@ export const useMailData = () => {
     loadData();
 
     // Setup WebSocket connection for real-time updates
-    const newSocket = io('http://localhost:3001');
+    const newSocket = io(API_BASE_URL);
     setSocket(newSocket);
 
     // Listen for mail stats updates - AUTO-RELOAD DISABLED
-    newSocket.on('mailStatsUpdate', (stats) => {
-      console.log('📡 Received mail stats update:', stats);
+    newSocket.on("mailStatsUpdate", (stats) => {
+      console.log("📡 Received mail stats update:", stats);
       // Auto-reload disabled for performance
       // loadData();
     });
 
     // Listen for new mails detected - AUTO-RELOAD DISABLED
-    newSocket.on('newMailsDetected', (data) => {
-      console.log('🆕 New mails detected:', data);
+    newSocket.on("newMailsDetected", (data) => {
+      console.log("🆕 New mails detected:", data);
       // Auto-reload disabled for performance
       // loadData();
     });
 
     // Listen for mail moved events - AUTO-RELOAD DISABLED
-    newSocket.on('mailMoved', (data) => {
-      console.log('📧 Mail moved:', data);
+    newSocket.on("mailMoved", (data) => {
+      console.log("📧 Mail moved:", data);
       // Auto-reload disabled for performance
       // loadData();
     });
@@ -86,17 +92,17 @@ export const useMailData = () => {
     const handleReload = (event) => {
       // Only reload if it's a manual reload
       if (event.detail && event.detail.manual) {
-        console.log('🔄 Received manual reload signal - refreshing mail data');
-        setReloadTrigger(prev => prev + 1);
+        console.log("🔄 Received manual reload signal - refreshing mail data");
+        setReloadTrigger((prev) => prev + 1);
       } else {
-        console.log('🔄 Ignoring automatic reload signal');
+        console.log("🔄 Ignoring automatic reload signal");
       }
     };
 
-    window.addEventListener('mailDataReload', handleReload);
+    window.addEventListener("mailDataReload", handleReload);
 
     return () => {
-      window.removeEventListener('mailDataReload', handleReload);
+      window.removeEventListener("mailDataReload", handleReload);
     };
   }, []);
 
@@ -105,7 +111,7 @@ export const useMailData = () => {
     loading,
     error,
     loadedFromFiles,
-    totalFiles: mails.length
+    totalFiles: mails.length,
   };
 };
 
@@ -125,9 +131,9 @@ export const useMailFile = (filePath) => {
       try {
         const module = await import(filePath);
         setMailData(module.default);
-        console.log('✅ Loaded mail file:', filePath);
+        console.log("✅ Loaded mail file:", filePath);
       } catch (err) {
-        console.error('❌ Error loading mail file:', filePath, err);
+        console.error("❌ Error loading mail file:", filePath, err);
         setError(err.message);
       } finally {
         setLoading(false);

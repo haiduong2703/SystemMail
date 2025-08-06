@@ -59,9 +59,7 @@ import CompactClock from "components/RealtimeClock/CompactClock.js";
 import PaginationControls from "components/PaginationControls/PaginationControls.js";
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
-import useDecryptedMails from "hooks/useDecryptedMails.js";
-import DecryptionStatus from "components/DecryptionStatus/DecryptionStatus.js";
-import MailDecryptionInfo from "components/MailDecryptionInfo/MailDecryptionInfo.js";
+import { API_BASE_URL } from "constants/api";
 
 const ValidMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -87,19 +85,6 @@ const ValidMails = () => {
   } = useMailContext();
   const { markMailAsRead } = useMarkMailRead();
   const { getGroupInfo, refreshGroups } = useGroupContext();
-
-  // Decryption functionality
-  const {
-    decryptedMails,
-    isDecrypting,
-    decryptionProgress,
-    decryptionErrors,
-    hasErrors,
-    decryptAllMails,
-    clearErrors,
-    totalMails,
-    decryptedCount,
-  } = useDecryptedMails(validMails, true); // Auto-decrypt enabled
 
   // Handle assign mail
   const handleAssignMail = (mail) => {
@@ -156,7 +141,7 @@ const ValidMails = () => {
   // Handle move mail to review
   const handleMoveToReview = async (mail) => {
     try {
-      const response = await fetch("http://localhost:3001/api/move-to-review", {
+      const response = await fetch(`${API_BASE_URL}/api/move-to-review`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -215,7 +200,7 @@ const ValidMails = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:3001/api/move-selected-to-expired",
+        `${API_BASE_URL}/api/move-selected-to-expired`,
         {
           method: "POST",
           headers: {
@@ -264,9 +249,97 @@ const ValidMails = () => {
     }
   };
 
+  // Handle move selected mails to review
+  const handleMoveSelectedToReview = async () => {
+    if (selectedMails.length === 0) {
+      setExpiredMovedAlert({
+        type: "warning",
+        message: "Please select mails to move to review section.",
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/move-selected-to-review`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            selectedMailIds: selectedMails,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Selected mails moved to review successfully:", result);
+
+        // Show success alert
+        setExpiredMovedAlert({
+          type: "success",
+          message: `Successfully moved ${selectedMails.length} mail(s) to Review section`,
+          timestamp: new Date(),
+        });
+
+        // Clear selection
+        setSelectedMails([]);
+
+        // Refresh mail data
+        if (refreshMails) {
+          refreshMails();
+        }
+      } else {
+        console.error("Failed to move selected mails to review");
+        setExpiredMovedAlert({
+          type: "danger",
+          message: "Failed to move selected mails to review. Please try again.",
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error("Error moving selected mails to review:", error);
+      setExpiredMovedAlert({
+        type: "danger",
+        message:
+          "Error occurred while moving selected mails to review. Please try again.",
+        timestamp: new Date(),
+      });
+    }
+  };
+
+  const handleRefreshPics = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/refresh-pics`, { method: "POST" });
+      setExpiredMovedAlert({
+        type: "success",
+        message: "PIC data refresh initiated.",
+        timestamp: new Date(),
+      });
+      setTimeout(() => setExpiredMovedAlert(null), 3000);
+    } catch (error) {
+      console.error("Error refreshing PICs:", error);
+      setExpiredMovedAlert({
+        type: "danger",
+        message: "Failed to refresh PIC data.",
+        timestamp: new Date(),
+      });
+      setTimeout(() => setExpiredMovedAlert(null), 3000);
+    }
+  };
+
   // Socket connection for real-time updates
   useEffect(() => {
-    const socket = io("http://localhost:3001");
+    const socket = io(API_BASE_URL);
+
+    socket.on("picsUpdated", () => {
+      if (refreshMails) {
+        refreshMails();
+      }
+    });
 
     // Listen for mail updates
     socket.on("mailsUpdated", (data) => {
@@ -374,7 +447,7 @@ const ValidMails = () => {
   };
 
   // Filter and sort mails based on search term and date range
-  const filteredMails = decryptedMails
+  const filteredMails = validMails
     .filter((mail) => {
       // Search filter
       const matchesSearch =
@@ -451,7 +524,7 @@ const ValidMails = () => {
 
   // Helper function to get filtered count for buttons
   const getFilteredCount = (replyFilter = null) => {
-    return decryptedMails.filter((mail) => {
+    return validMails.filter((mail) => {
       const matchesSearch =
         (mail.Subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (mail.From || "").toLowerCase().includes(searchTerm.toLowerCase());
@@ -531,30 +604,6 @@ const ValidMails = () => {
           </Row>
         )}
 
-        {/* Decryption Status */}
-        <Row>
-          <Col>
-            <DecryptionStatus
-              isDecrypting={isDecrypting}
-              decryptionProgress={decryptionProgress}
-              decryptionErrors={decryptionErrors}
-              totalMails={totalMails}
-              decryptedCount={decryptedCount}
-              onRetryDecryption={decryptAllMails}
-              onClearErrors={clearErrors}
-              compact={true}
-            />
-            <MailDecryptionInfo
-              originalMails={validMails}
-              decryptedMails={decryptedMails}
-              decryptionErrors={decryptionErrors}
-              isDecrypting={isDecrypting}
-              totalMails={totalMails}
-              decryptedCount={decryptedCount}
-            />
-          </Col>
-        </Row>
-
         {/* Date Filter */}
         <Row className="mb-4">
           <Col>
@@ -596,6 +645,16 @@ const ValidMails = () => {
                       Refresh Groups
                     </Button>
                     <Button
+                      color="primary"
+                      size="sm"
+                      onClick={handleRefreshPics}
+                      title="Refresh PIC data"
+                      className="ml-2"
+                    >
+                      <i className="fas fa-user-sync mr-1" />
+                      Refresh PICs
+                    </Button>
+                    <Button
                       color="warning"
                       size="sm"
                       onClick={handleMoveSelectedToExpired}
@@ -605,6 +664,17 @@ const ValidMails = () => {
                     >
                       <i className="fas fa-arrow-down mr-1" />
                       Move Selected ({selectedMails.length})
+                    </Button>
+                    <Button
+                      color="info"
+                      size="sm"
+                      onClick={handleMoveSelectedToReview}
+                      className="ml-2"
+                      disabled={selectedMails.length === 0}
+                      title={`Move ${selectedMails.length} selected mail(s) to Review section`}
+                    >
+                      <i className="fas fa-share-square mr-1" />
+                      Move to Review ({selectedMails.length})
                     </Button>
                   </div>
                   <div className="col-lg-6 col-5">

@@ -16,13 +16,17 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000", // React app URL
+    origin: "*", // Allow all origins
     methods: ["GET", "POST"],
   },
 });
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "*", // Allow all origins
+  })
+);
 app.use(express.json());
 
 // Import crypto for password hashing
@@ -356,7 +360,8 @@ const loadAllMails = () => {
       files.forEach((file) => {
         const mailData = readJsonFile(path.join(dungHanMustRepPath, file));
         if (mailData) {
-          const enrichedMail = enrichMailWithAssignmentInfo(mailData);
+          const decryptedMail = decryptMailFrom(mailData); // Decrypt here
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
             id: fileId++,
             fileName: file,
@@ -380,7 +385,8 @@ const loadAllMails = () => {
       files.forEach((file) => {
         const mailData = readJsonFile(path.join(quaHanChuaRepPath, file));
         if (mailData) {
-          const enrichedMail = enrichMailWithAssignmentInfo(mailData);
+          const decryptedMail = decryptMailFrom(mailData); // Decrypt here
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
             id: fileId++,
             fileName: file,
@@ -404,7 +410,8 @@ const loadAllMails = () => {
       files.forEach((file) => {
         const mailData = readJsonFile(path.join(quaHanDaRepPath, file));
         if (mailData) {
-          const enrichedMail = enrichMailWithAssignmentInfo(mailData);
+          const decryptedMail = decryptMailFrom(mailData); // Decrypt here
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
             id: fileId++,
             fileName: file,
@@ -428,7 +435,8 @@ const loadAllMails = () => {
       files.forEach((file) => {
         const mailData = readJsonFile(path.join(reviewMailPath, file));
         if (mailData) {
-          const enrichedMail = enrichMailWithAssignmentInfo(mailData);
+          const decryptedMail = decryptMailFrom(mailData); // Decrypt here
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
             id: fileId++,
             fileName: file,
@@ -583,11 +591,66 @@ const watcher = chokidar.watch(MAIL_DATA_PATH, {
   ignoreInitial: true,
 });
 
+// Helper function to find group leader
+const findGroupLeader = (groupId) => {
+  const picsPath = path.join(ASSIGNMENT_DATA_PATH, "PIC");
+  if (!fs.existsSync(picsPath)) return null;
+
+  const files = fs.readdirSync(picsPath).filter((f) => f.endsWith(".json"));
+  for (const file of files) {
+    const picData = readJsonFile(path.join(picsPath, file));
+    if (
+      picData &&
+      picData.isLeader &&
+      picData.groups &&
+      picData.groups.includes(groupId)
+    ) {
+      return picData;
+    }
+  }
+  return null;
+};
+
 watcher
   .on("add", (filePath) => {
-    if (filePath.endsWith(".json")) {
+    if (filePath.endsWith(".json") && filePath.includes("DungHan\\mustRep")) {
+      console.log(`📁 New mail file detected: ${path.basename(filePath)}`);
+
+      setTimeout(() => {
+        try {
+          const mailData = readJsonFile(filePath);
+          if (mailData && !mailData.assignedTo) {
+            // Assuming the group can be determined from the mail's "To" address or other logic
+            // This is a placeholder for the actual logic to determine the group
+            const groupId = "GROUP_ID_TO_BE_DETERMINED"; // Replace with actual logic
+
+            const leader = findGroupLeader(groupId);
+            if (leader) {
+              mailData.assignedTo = {
+                type: "pic",
+                picId: leader.id,
+                picName: leader.name,
+                assignedAt: new Date().toISOString(),
+              };
+              writeJsonFile(filePath, mailData);
+              console.log(
+                `📧 Automatically assigned new mail ${path.basename(
+                  filePath
+                )} to leader ${leader.name}`
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error auto-assigning mail ${path.basename(filePath)}:`,
+            error
+          );
+        }
+        checkForNewMails();
+      }, 1000);
+    } else if (filePath.endsWith(".json")) {
       console.log(`📁 New file detected: ${path.basename(filePath)}`);
-      setTimeout(checkForNewMails, 500); // Delay to ensure file is fully written
+      setTimeout(checkForNewMails, 500);
     }
   })
   .on("change", (filePath) => {
@@ -708,6 +771,18 @@ app.post("/api/groups", (req, res) => {
     res.json({ success: true, group: groupData });
   } else {
     res.status(500).json({ success: false, error: "Failed to create group" });
+  }
+});
+
+app.post("/api/refresh-pics", (req, res) => {
+  try {
+    // This endpoint could re-scan the PICs and Groups directories
+    // and broadcast an update to clients if needed.
+    // For now, just a success message.
+    broadcastToClients("picsUpdated", { timestamp: new Date() });
+    res.json({ success: true, message: "PICs refreshed" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to refresh PICs" });
   }
 });
 
@@ -1247,7 +1322,7 @@ app.post("/api/move-to-review", (req, res) => {
     reviewMailData.dateMoved = [dateStr, timeStr];
 
     // Generate filename for review mail
-    const fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+    const fileName = mailData.fileName || `${path.basename(mailData.filePath)}`;
     const reviewFilePath = path.join(reviewMailPath, fileName);
 
     // Write the mail to ReviewMail folder
@@ -1626,6 +1701,99 @@ app.post("/api/move-selected-to-expired", (req, res) => {
     res
       .status(500)
       .json({ error: "Failed to move selected mails to expired section" });
+  }
+});
+
+// API endpoint to move selected mails to review
+app.post("/api/move-selected-to-review", (req, res) => {
+  try {
+    const { selectedMailIds } = req.body;
+
+    if (
+      !selectedMailIds ||
+      !Array.isArray(selectedMailIds) ||
+      selectedMailIds.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Selected mail IDs array is required" });
+    }
+
+    let movedCount = 0;
+    const errors = [];
+    const reviewMailPath = path.join(MAIL_DATA_PATH, "ReviewMail");
+    if (!fs.existsSync(reviewMailPath)) {
+      fs.mkdirSync(reviewMailPath, { recursive: true });
+    }
+
+    const allMails = loadAllMails();
+
+    selectedMailIds.forEach((mailId) => {
+      const mailData = allMails.find(
+        (m) => (m.id || `${m.Subject}-${m.From}`) === mailId
+      );
+
+      if (!mailData) {
+        errors.push(`Mail with ID ${mailId} not found`);
+        return;
+      }
+
+      try {
+        const originalFilePath = findMailFile(mailData);
+        if (!originalFilePath || !fs.existsSync(originalFilePath)) {
+          errors.push(`Mail file not found for: ${mailData.Subject}`);
+          return;
+        }
+
+        const now = new Date();
+        const dateStr = now.toISOString().split("T")[0];
+        const timeStr = now.toTimeString().slice(0, 5);
+
+        const reviewMailData = {
+          ...mailData,
+          category: "ReviewMail",
+          dateMoved: [dateStr, timeStr],
+          originalCategory: mailData.category || "Unknown",
+          originalStatus: mailData.status || "Unknown",
+        };
+        const fileName =
+          mailData.fileName || `${path.basename(mailData.filePath)}`;
+        const reviewFilePath = path.join(reviewMailPath, fileName);
+
+        if (writeJsonFile(reviewFilePath, reviewMailData)) {
+          fs.unlinkSync(originalFilePath);
+          movedCount++;
+        } else {
+          errors.push(
+            `Failed to write review mail file for: ${mailData.Subject}`
+          );
+        }
+      } catch (error) {
+        errors.push(
+          `Error processing mail ${mailData.Subject}: ${error.message}`
+        );
+      }
+    });
+
+    if (movedCount > 0) {
+      broadcastToClients("mailsUpdated", {
+        type: "moved_to_review",
+        count: movedCount,
+        timestamp: new Date(),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Moved ${movedCount} mail(s) to review section`,
+      movedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    console.error("Error moving selected mails to review:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to move selected mails to review section" });
   }
 });
 
@@ -2470,9 +2638,11 @@ app.post("/api/decrypt/mails", (req, res) => {
 
 // Start server
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log("🚀 Mail Server Started!");
-  console.log(`📡 Server running on port ${PORT}`);
+  console.log(
+    `📡 Server running on 0.0.0.0:${PORT} (accessible on your network)`
+  );
   console.log(`🔍 Watching mail directory: ${MAIL_DATA_PATH}`);
   console.log(`🌐 CORS enabled for: http://localhost:3000`);
 

@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from 'contexts/AuthContext.js';
-import AccessDenied from './AccessDenied.jsx';
-import AdminAuthModal from './AdminAuthModal.jsx';
+import React, { useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "contexts/AuthContext.js";
+import AccessDenied from "./AccessDenied.jsx";
+import AdminAuthModal from "./AdminAuthModal.jsx";
 
 const withAdminAuth = (WrappedComponent, options = {}) => {
   const {
     title = "Admin Authentication Required",
     description = "This section requires admin privileges.",
     allowRequestAccess = true,
-    showLoginButton = true
+    showLoginButton = true,
   } = options;
 
   return (props) => {
@@ -22,9 +22,9 @@ const withAdminAuth = (WrappedComponent, options = {}) => {
       if (isAuthenticated && user) {
         // Check if already authenticated for this session
         const sessionKey = `adminAuth_${user.username}`;
-        const sessionAuth = sessionStorage.getItem(sessionKey);
+        const sessionAuth = localStorage.getItem(sessionKey);
 
-        if (sessionAuth === 'true') {
+        if (sessionAuth === "true") {
           setIsAdminAuthenticated(true);
           setShowAuthModal(false);
         } else {
@@ -40,7 +40,10 @@ const withAdminAuth = (WrappedComponent, options = {}) => {
     // Show loading spinner while checking authentication
     if (loading) {
       return (
-        <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+        <div
+          className="d-flex justify-content-center align-items-center"
+          style={{ height: "100vh" }}
+        >
           <div className="spinner-border text-primary" role="status">
             <span className="sr-only">Loading...</span>
           </div>
@@ -58,7 +61,7 @@ const withAdminAuth = (WrappedComponent, options = {}) => {
       const handleAuthSuccess = (adminUser) => {
         // Store session authentication
         const sessionKey = `adminAuth_${adminUser.username}`;
-        sessionStorage.setItem(sessionKey, 'true');
+        localStorage.setItem(sessionKey, "true");
 
         setIsAdminAuthenticated(true);
         setShowAuthModal(false);
@@ -70,7 +73,7 @@ const withAdminAuth = (WrappedComponent, options = {}) => {
       };
 
       // If user is not admin, show access denied
-      if (isAuthenticated && user && user.role !== 'admin') {
+      if (isAuthenticated && user && user.role !== "admin") {
         return (
           <>
             <AccessDenied
