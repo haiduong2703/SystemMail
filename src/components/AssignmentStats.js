@@ -1,12 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  CardBody,
-  CardTitle,
-  Row,
-  Col,
-  Badge
-} from 'reactstrap';
+import React, { useState, useEffect } from "react";
+import { Card, CardBody, CardTitle, Row, Col, Badge } from "reactstrap";
 
 const AssignmentStats = () => {
   const [stats, setStats] = useState({
@@ -15,7 +8,7 @@ const AssignmentStats = () => {
     assignedToPics: 0,
     pendingReply: 0,
     groups: 0,
-    pics: 0
+    pics: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -26,29 +19,35 @@ const AssignmentStats = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
-      
+
       // Load assigned mails
-      const assignedResponse = await fetch('/api/assigned-mails?groupId=all');
+      const assignedResponse = await fetch(
+        "http://localhost:3002/api/assigned-mails?groupId=all"
+      );
       const assignedMails = await assignedResponse.json();
-      
+
       // Load groups
-      const groupsResponse = await fetch('/api/groups');
+      const groupsResponse = await fetch("http://localhost:3002/api/groups");
       const groups = await groupsResponse.json();
-      
+
       // Load PICs
-      const picsResponse = await fetch('/api/pics');
+      const picsResponse = await fetch("http://localhost:3002/api/pics");
       const pics = await picsResponse.json();
-      
+
       setStats({
         totalAssigned: assignedMails.length,
-        assignedToGroups: assignedMails.filter(m => m.assignedTo?.type === 'group').length,
-        assignedToPics: assignedMails.filter(m => m.assignedTo?.type === 'pic').length,
-        pendingReply: assignedMails.filter(m => !m.isReplied).length,
+        assignedToGroups: assignedMails.filter(
+          (m) => m.assignedTo?.type === "group"
+        ).length,
+        assignedToPics: assignedMails.filter(
+          (m) => m.assignedTo?.type === "pic"
+        ).length,
+        pendingReply: assignedMails.filter((m) => !m.isReplied).length,
         groups: groups.length,
-        pics: pics.length
+        pics: pics.length,
       });
     } catch (err) {
-      console.error('Failed to load assignment stats:', err);
+      console.error("Failed to load assignment stats:", err);
     } finally {
       setLoading(false);
     }
@@ -72,10 +71,7 @@ const AssignmentStats = () => {
       <CardBody>
         <Row>
           <div className="col">
-            <CardTitle
-              tag="h5"
-              className="text-uppercase text-muted mb-0"
-            >
+            <CardTitle tag="h5" className="text-uppercase text-muted mb-0">
               Assignment Overview
             </CardTitle>
             <span className="h2 font-weight-bold mb-0">
@@ -94,7 +90,7 @@ const AssignmentStats = () => {
             </div>
           </Col>
         </Row>
-        
+
         {/* <div className="mt-3">
           <Row>
             <Col xs="6">

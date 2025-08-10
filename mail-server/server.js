@@ -38,6 +38,32 @@ const ASSIGNMENT_DATA_PATH = "C:\\classifyMail\\AssignmentData";
 const USER_DATA_PATH = "C:\\classifyMail\\UserData";
 const RELOAD_STATUS_FILE = path.join(MAIL_DATA_PATH, "DungHan/new.json");
 
+// Ensure necessary directories exist on startup
+const ensureDirectoriesExist = () => {
+  try {
+    if (!fs.existsSync(MAIL_DATA_PATH)) {
+      fs.mkdirSync(MAIL_DATA_PATH, { recursive: true });
+      console.log(`📁 Created mail data directory: ${MAIL_DATA_PATH}`);
+    }
+    if (!fs.existsSync(ASSIGNMENT_DATA_PATH)) {
+      fs.mkdirSync(ASSIGNMENT_DATA_PATH, { recursive: true });
+      console.log(
+        `📁 Created assignment data directory: ${ASSIGNMENT_DATA_PATH}`
+      );
+    }
+    if (!fs.existsSync(USER_DATA_PATH)) {
+      fs.mkdirSync(USER_DATA_PATH, { recursive: true });
+      console.log(`📁 Created user data directory: ${USER_DATA_PATH}`);
+    }
+  } catch (error) {
+    console.error("❌ Error creating necessary directories:", error);
+    process.exit(1); // Exit if we can't create essential directories
+  }
+};
+
+// Run directory check on startup
+ensureDirectoriesExist();
+
 // State management
 let connectedClients = new Set();
 let mailStats = {
@@ -69,10 +95,32 @@ const hashPassword = (password) => {
 };
 
 const verifyPassword = (password, salt, hash) => {
-  const hashVerify = crypto
-    .pbkdf2Sync(password, salt, 1000, 64, "sha512")
-    .toString("hex");
-  return hash === hashVerify;
+  try {
+    console.log(
+      `[Verify] Input type - password: ${typeof password}, salt: ${typeof salt}, hash: ${typeof hash}`
+    );
+    if (
+      typeof password !== "string" ||
+      typeof salt !== "string" ||
+      typeof hash !== "string"
+    ) {
+      console.error(
+        "[Verify] Error: Invalid input types for password verification."
+      );
+      return false;
+    }
+
+    const hashVerify = crypto
+      .pbkdf2Sync(password, salt, 1000, 64, "sha512")
+      .toString("hex");
+
+    const result = hash === hashVerify;
+    console.log(`[Verify] Verification successful. Match: ${result}`);
+    return result;
+  } catch (e) {
+    console.error("!!! CRITICAL: Error inside verifyPassword function:", e);
+    throw e; // Re-throw the error to be caught by the main login handler
+  }
 };
 
 // User management utilities
@@ -472,6 +520,70 @@ app.get("/api/mail-stats", (req, res) => {
 app.get("/api/mails", (req, res) => {
   const mails = loadAllMails();
   res.json(mails);
+});
+
+// Update mail status (isReplied)
+app.put("/api/mails/:id/status", (req, res) => {
+  const { id } = req.params;
+  const { isReplied } = req.body;
+
+  try {
+    console.log(`[Update Mail Status] ID: ${id}, isReplied: ${isReplied}`);
+
+    // Find the mail file
+    const allMails = loadAllMails();
+    const mail = allMails.find((m) => m.id === id || m.id === parseInt(id));
+
+    if (!mail) {
+      return res.status(404).json({
+        success: false,
+        error: "Mail not found",
+      });
+    }
+
+    // Read the current mail file
+    const mailData = readJsonFile(mail.filePath);
+    if (!mailData) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to read mail file",
+      });
+    }
+
+    // Update isReplied status
+    mailData.isReplied = Boolean(isReplied);
+
+    // Write back to file
+    if (writeJsonFile(mail.filePath, mailData)) {
+      console.log(
+        `✅ Updated mail status: ${mail.Subject} -> isReplied: ${isReplied}`
+      );
+
+      // Broadcast update to clients
+      broadcastToClients("mailStatusUpdated", {
+        mailId: id,
+        isReplied: Boolean(isReplied),
+        subject: mail.Subject,
+      });
+
+      res.json({
+        success: true,
+        message: "Mail status updated successfully",
+        isReplied: Boolean(isReplied),
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to update mail file",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error updating mail status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
 });
 
 app.get("/api/reload-status", (req, res) => {
@@ -1321,8 +1433,24 @@ app.post("/api/move-to-review", (req, res) => {
     delete reviewMailData.dateMoved;
     reviewMailData.dateMoved = [dateStr, timeStr];
 
-    // Generate filename for review mail
-    const fileName = mailData.fileName || `${path.basename(mailData.filePath)}`;
+    // Generate filename for review mail - preserve original filename/ID
+    let fileName = mailData.fileName;
+
+    // If no fileName, extract from filePath
+    if (!fileName && mailData.filePath) {
+      fileName = path.basename(mailData.filePath);
+    }
+
+    // If still no fileName, use ID if available, otherwise fallback to Subject
+    if (!fileName) {
+      if (mailData.id) {
+        fileName = `${mailData.id}.json`;
+      } else {
+        fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+      }
+    }
+
+    console.log(`📝 Using filename for review: ${fileName}`);
     const reviewFilePath = path.join(reviewMailPath, fileName);
 
     // Write the mail to ReviewMail folder
@@ -1428,8 +1556,24 @@ app.post("/api/move-back-from-review", (req, res) => {
     delete restoredMailData.originalCategory;
     delete restoredMailData.originalStatus;
 
-    // Generate filename for restored mail
-    const fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+    // Generate filename for restored mail - preserve original filename/ID
+    let fileName = mailData.fileName;
+
+    // If no fileName, extract from filePath
+    if (!fileName && mailData.filePath) {
+      fileName = path.basename(mailData.filePath);
+    }
+
+    // If still no fileName, use ID if available, otherwise fallback to Subject
+    if (!fileName) {
+      if (mailData.id) {
+        fileName = `${mailData.id}.json`;
+      } else {
+        fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+      }
+    }
+
+    console.log(`📝 Using filename for restore: ${fileName}`);
     const restoredFilePath = path.join(originalFolderPath, fileName);
 
     // Write restored mail to original location
@@ -1477,9 +1621,13 @@ const findMailFile = (mailData) => {
     fileName = path.basename(mailData.filePath);
   }
 
-  // If still no fileName, generate from Subject as fallback
+  // If still no fileName, use ID if available, otherwise fallback to Subject
   if (!fileName) {
-    fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+    if (mailData.id) {
+      fileName = `${mailData.id}.json`;
+    } else {
+      fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+    }
   }
 
   console.log(`🔍 Looking for mail file: ${fileName}`);
@@ -1553,8 +1701,24 @@ app.post("/api/move-back-from-review", (req, res) => {
     delete restoredMailData.originalCategory;
     delete restoredMailData.originalStatus;
 
-    // Generate filename for restored mail
-    const fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+    // Generate filename for restored mail - preserve original filename/ID
+    let fileName = mailData.fileName;
+
+    // If no fileName, extract from filePath
+    if (!fileName && mailData.filePath) {
+      fileName = path.basename(mailData.filePath);
+    }
+
+    // If still no fileName, use ID if available, otherwise fallback to Subject
+    if (!fileName) {
+      if (mailData.id) {
+        fileName = `${mailData.id}.json`;
+      } else {
+        fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+      }
+    }
+
+    console.log(`📝 Using filename for restore: ${fileName}`);
     const restoredFilePath = path.join(targetPath, fileName);
 
     // Write the mail to original location
@@ -1651,8 +1815,24 @@ app.post("/api/move-selected-to-expired", (req, res) => {
             expiredDate: new Date().toISOString().split("T"), // [date, time] format
           };
 
-          // Generate filename
-          const fileName = `${mail.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+          // Generate filename - preserve original filename/ID
+          let fileName = mail.fileName;
+
+          // If no fileName, extract from filePath
+          if (!fileName && mail.filePath) {
+            fileName = path.basename(mail.filePath);
+          }
+
+          // If still no fileName, use ID if available, otherwise fallback to Subject
+          if (!fileName) {
+            if (mail.id) {
+              fileName = `${mail.id}.json`;
+            } else {
+              fileName = `${mail.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
+            }
+          }
+
+          console.log(`📝 Using filename for expired: ${fileName}`);
           const expiredFilePath = path.join(expiredUnrepliedPath, fileName);
 
           // Write to expired folder
@@ -1898,8 +2078,14 @@ app.post("/api/login", (req, res) => {
   }
 
   try {
+    console.log(`[Login Attempt] Username: ${username}`);
+
     // Get user data
     const userData = getUser(username);
+    console.log(
+      "[Login Attempt] Fetched userData:",
+      userData ? "Found" : "Not Found"
+    );
 
     if (!userData) {
       return res.status(401).json({ error: "Invalid username or password" });
@@ -1910,11 +2096,26 @@ app.post("/api/login", (req, res) => {
     }
 
     // Verify password
-    const isValidPassword = verifyPassword(
-      password,
-      userData.passwordSalt,
-      userData.passwordHash
-    );
+    let isValidPassword = false;
+    try {
+      console.log("[Login Attempt] Verifying password...");
+      isValidPassword = verifyPassword(
+        password,
+        userData.passwordSalt,
+        userData.passwordHash
+      );
+      console.log(
+        "[Login Attempt] Password verification result:",
+        isValidPassword
+      );
+    } catch (verifyError) {
+      console.error(
+        "!!! Password verification failed with an error:",
+        verifyError
+      );
+      // This will be caught by the outer catch block
+      throw verifyError;
+    }
 
     if (!isValidPassword) {
       return res.status(401).json({ error: "Invalid username or password" });
@@ -2637,14 +2838,14 @@ app.post("/api/decrypt/mails", (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002; // Changed port to 3002
 server.listen(PORT, "0.0.0.0", () => {
   console.log("🚀 Mail Server Started!");
   console.log(
     `📡 Server running on 0.0.0.0:${PORT} (accessible on your network)`
   );
   console.log(`🔍 Watching mail directory: ${MAIL_DATA_PATH}`);
-  console.log(`🌐 CORS enabled for: http://localhost:3000`);
+  console.log(`🌐 CORS enabled for: http://localhost:3000`); // Still assuming frontend is on 3000
 
   // Initial scan
   mailStats = scanMailDirectory();

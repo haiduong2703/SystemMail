@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
+import { API_ENDPOINTS } from "../constants/api";
 
 // Create Auth Context
 const AuthContext = createContext();
@@ -13,18 +14,18 @@ export const AuthProvider = ({ children }) => {
   // Check if user is already logged in on app start
   useEffect(() => {
     const checkAuthStatus = () => {
-      const token = localStorage.getItem('authToken');
-      const userData = localStorage.getItem('userData');
-      
+      const token = localStorage.getItem("authToken");
+      const userData = localStorage.getItem("userData");
+
       if (token && userData) {
         try {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           setIsAuthenticated(true);
         } catch (error) {
-          console.error('Error parsing user data:', error);
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('userData');
+          console.error("Error parsing user data:", error);
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("userData");
         }
       }
       setLoading(false);
@@ -36,10 +37,10 @@ export const AuthProvider = ({ children }) => {
   // Login function
   const login = async (username, password) => {
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
       });
@@ -53,22 +54,22 @@ export const AuthProvider = ({ children }) => {
           email: result.user.email,
           fullName: result.user.fullName,
           name: result.user.fullName || result.user.username,
-          role: result.user.role
+          role: result.user.role,
         };
 
         // Store in localStorage
-        localStorage.setItem('authToken', result.token);
-        localStorage.setItem('userData', JSON.stringify(userData));
+        localStorage.setItem("authToken", result.token);
+        localStorage.setItem("userData", JSON.stringify(userData));
 
         setUser(userData);
         setIsAuthenticated(true);
 
         return { success: true, user: userData };
       } else {
-        throw new Error(result.error || 'Login failed');
+        throw new Error(result.error || "Login failed");
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       return { success: false, error: error.message };
     }
   };
@@ -76,10 +77,10 @@ export const AuthProvider = ({ children }) => {
   // Register function
   const register = async (userData) => {
     try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.REGISTER, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(userData),
       });
@@ -89,18 +90,18 @@ export const AuthProvider = ({ children }) => {
       if (response.ok && result.success) {
         return { success: true, user: result.user, message: result.message };
       } else {
-        throw new Error(result.error || 'Registration failed');
+        throw new Error(result.error || "Registration failed");
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error("Registration error:", error);
       return { success: false, error: error.message };
     }
   };
 
   // Logout function
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userData");
     setUser(null);
     setIsAuthenticated(false);
   };
@@ -110,37 +111,40 @@ export const AuthProvider = ({ children }) => {
     try {
       // If this is a password change request
       if (userData.currentPassword && userData.newPassword) {
-        console.log('🔄 Changing password for user:', userData.username);
+        console.log("🔄 Changing password for user:", userData.username);
 
-        const response = await fetch(`/api/users/${userData.username}/password`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            currentPassword: userData.currentPassword,
-            newPassword: userData.newPassword
-          }),
-        });
+        const response = await fetch(
+          `${API_ENDPOINTS.USERS}/${userData.username}/password`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              currentPassword: userData.currentPassword,
+              newPassword: userData.newPassword,
+            }),
+          }
+        );
 
         const result = await response.json();
 
         if (response.ok) {
-          console.log('✅ Password changed successfully');
+          console.log("✅ Password changed successfully");
           return { success: true, message: result.message };
         } else {
-          console.error('❌ Password change failed:', result.error);
+          console.error("❌ Password change failed:", result.error);
           return { success: false, error: result.error };
         }
       } else {
         // Regular user data update
         const newUserData = { ...user, ...userData };
-        localStorage.setItem('userData', JSON.stringify(newUserData));
+        localStorage.setItem("userData", JSON.stringify(newUserData));
         setUser(newUserData);
         return { success: true };
       }
     } catch (error) {
-      console.error('❌ Error in updateUser:', error);
+      console.error("❌ Error in updateUser:", error);
       return { success: false, error: error.message };
     }
   };
@@ -149,13 +153,13 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     try {
       if (!user?.username) {
-        throw new Error('No user logged in');
+        throw new Error("No user logged in");
       }
 
-      const response = await fetch(`/api/users/${user.username}`, {
-        method: 'PUT',
+      const response = await fetch(`${API_ENDPOINTS.USERS}/${user.username}`, {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(profileData),
       });
@@ -165,15 +169,15 @@ export const AuthProvider = ({ children }) => {
       if (response.ok && result.success) {
         // Update local user data
         const newUserData = { ...user, ...result.user };
-        localStorage.setItem('userData', JSON.stringify(newUserData));
+        localStorage.setItem("userData", JSON.stringify(newUserData));
         setUser(newUserData);
 
         return { success: true, user: result.user, message: result.message };
       } else {
-        throw new Error(result.error || 'Profile update failed');
+        throw new Error(result.error || "Profile update failed");
       }
     } catch (error) {
-      console.error('Profile update error:', error);
+      console.error("Profile update error:", error);
       return { success: false, error: error.message };
     }
   };
@@ -186,21 +190,17 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
-    updateProfile
+    updateProfile,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 // Hook to use Auth Context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -212,7 +212,10 @@ export const withAuth = (Component) => {
 
     if (loading) {
       return (
-        <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+        <div
+          className="d-flex justify-content-center align-items-center"
+          style={{ height: "100vh" }}
+        >
           <div className="spinner-border text-primary" role="status">
             <span className="sr-only">Loading...</span>
           </div>

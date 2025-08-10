@@ -23,6 +23,7 @@ const MailTable = ({
   handleAssignMail,
   handleMoveToReview, // New prop for move to review functionality
   handleMoveBack, // New prop for move back from review functionality
+  onStatusClick, // New prop for status click functionality
   mailType = "valid", // 'valid', 'expired', 'review', 'all'
   // New props for checkbox functionality
   selectedMails = [],
@@ -83,7 +84,12 @@ const MailTable = ({
   const renderStatus = (mail) => {
     if (mailType === "review") {
       return (
-        <Badge color={mail.isReplied ? "success" : "info"} pill>
+        <Badge
+          color={mail.isReplied ? "success" : "info"}
+          pill
+          style={{ cursor: onStatusClick ? "pointer" : "default" }}
+          onClick={() => onStatusClick && onStatusClick(mail)}
+        >
           {mail.isReplied ? "Processed" : "Under Review"}
         </Badge>
       );
