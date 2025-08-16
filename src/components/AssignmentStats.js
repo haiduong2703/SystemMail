@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardBody, CardTitle, Row, Col, Badge } from "reactstrap";
+import { API_BASE_URL } from "constants/api.js";
 
 const AssignmentStats = () => {
   const [stats, setStats] = useState({
@@ -22,16 +23,16 @@ const AssignmentStats = () => {
 
       // Load assigned mails
       const assignedResponse = await fetch(
-        "http://localhost:3002/api/assigned-mails?groupId=all"
+        `${API_BASE_URL}/api/assigned-mails?groupId=all`
       );
       const assignedMails = await assignedResponse.json();
 
       // Load groups
-      const groupsResponse = await fetch("http://localhost:3002/api/groups");
+      const groupsResponse = await fetch(`${API_BASE_URL}/api/groups`);
       const groups = await groupsResponse.json();
 
       // Load PICs
-      const picsResponse = await fetch("http://localhost:3002/api/pics");
+      const picsResponse = await fetch(`${API_BASE_URL}/api/pics`);
       const pics = await picsResponse.json();
 
       setStats({

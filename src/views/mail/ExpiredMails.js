@@ -54,6 +54,7 @@ import {
   useExpiredUnrepliedMails,
   useExpiredRepliedMails,
 } from "contexts/MailContext.js";
+import { API_BASE_URL } from "constants/api.js";
 import { useMarkMailRead } from "hooks/useMarkMailRead.js";
 import CompactHeader from "components/Headers/CompactHeader.js";
 import { useMailContext } from "contexts/MailContext.js";
@@ -139,7 +140,7 @@ const ExpiredMails = () => {
     console.log("🚀 ExpiredMails handleMoveToReview called with:", mail);
     try {
       console.log("📤 Sending API request to move-to-review...");
-      const response = await fetch("http://localhost:3001/api/move-to-review", {
+      const response = await fetch(`${API_BASE_URL}/api/move-to-review`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,7 +182,7 @@ const ExpiredMails = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:3001/api/move-selected-to-review",
+        `${API_BASE_URL}/api/move-selected-to-review`,
         {
           method: "POST",
           headers: {

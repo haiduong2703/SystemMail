@@ -1,7 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
-import io from 'socket.io-client';
+import { useState, useEffect, useRef } from "react";
+import io from "socket.io-client";
 
-const SERVER_URL = 'http://localhost:3001';
+// Dynamic server URL based on current hostname
+const getServerUrl = () => {
+  if (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    return "http://localhost:3002";
+  }
+  return `http://${window.location.hostname}:3002`;
+};
+
+const SERVER_URL = getServerUrl();
 
 // Hook để kết nối với real-time mail server
 export const useRealtimeMailServer = () => {
@@ -13,7 +24,7 @@ export const useRealtimeMailServer = () => {
     quaHanCount: 0,
     dungHanUnreplied: 0,
     quaHanUnreplied: 0,
-    lastUpdate: null
+    lastUpdate: null,
   });
   const [reloadStatus, setReloadStatus] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
@@ -22,44 +33,44 @@ export const useRealtimeMailServer = () => {
   useEffect(() => {
     // Initialize socket connection
     const socket = io(SERVER_URL, {
-      transports: ['websocket', 'polling'],
+      transports: ["websocket", "polling"],
       timeout: 5000,
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
     });
 
     socketRef.current = socket;
 
     // Connection event handlers
-    socket.on('connect', () => {
-      console.log('🔌 Connected to mail server');
+    socket.on("connect", () => {
+      console.log("🔌 Connected to mail server");
       setIsConnected(true);
       setConnectionError(null);
-      
+
       // Request initial mail stats
-      socket.emit('requestMailStats');
+      socket.emit("requestMailStats");
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('🔌 Disconnected from mail server:', reason);
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 Disconnected from mail server:", reason);
       setIsConnected(false);
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('❌ Connection error:', error.message);
+    socket.on("connect_error", (error) => {
+      console.error("❌ Connection error:", error.message);
       setConnectionError(error.message);
       setIsConnected(false);
     });
 
     // Mail data event handlers
-    socket.on('mailStatsUpdate', (stats) => {
-      console.log('📊 Mail stats updated:', stats);
+    socket.on("mailStatsUpdate", (stats) => {
+      console.log("📊 Mail stats updated:", stats);
       setMailStats(stats);
     });
 
-    socket.on('newMailsDetected', (data) => {
-      console.log('🆕 New mails detected:', data);
+    socket.on("newMailsDetected", (data) => {
+      console.log("🆕 New mails detected:", data);
       // Auto-reload disabled for performance
       // setReloadStatus(data.shouldReload);
 
@@ -72,26 +83,26 @@ export const useRealtimeMailServer = () => {
       //   });
       // }
 
-      console.log('📊 Auto-reload disabled for performance');
+      console.log("📊 Auto-reload disabled for performance");
     });
 
-    socket.on('reloadStatusChanged', (data) => {
-      console.log('🔄 Reload status changed:', data);
+    socket.on("reloadStatusChanged", (data) => {
+      console.log("🔄 Reload status changed:", data);
       setReloadStatus(data.shouldReload);
     });
 
     // Cleanup on unmount
     return () => {
-      console.log('🔌 Cleaning up socket connection');
+      console.log("🔌 Cleaning up socket connection");
       socket.disconnect();
     };
   }, []);
 
   // Request notification permission on first load
   useEffect(() => {
-    if (window.Notification && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        console.log('🔔 Notification permission:', permission);
+    if (window.Notification && Notification.permission === "default") {
+      Notification.requestPermission().then((permission) => {
+        console.log("🔔 Notification permission:", permission);
       });
     }
   }, []);
@@ -99,13 +110,13 @@ export const useRealtimeMailServer = () => {
   // Functions to interact with server
   const requestMailStats = () => {
     if (socketRef.current && isConnected) {
-      socketRef.current.emit('requestMailStats');
+      socketRef.current.emit("requestMailStats");
     }
   };
 
   const markMailsAsRead = () => {
     if (socketRef.current && isConnected) {
-      socketRef.current.emit('markMailsAsRead');
+      socketRef.current.emit("markMailsAsRead");
       setReloadStatus(false);
     }
   };
@@ -113,23 +124,23 @@ export const useRealtimeMailServer = () => {
   const simulateNewMail = async (mailData) => {
     try {
       const response = await fetch(`${SERVER_URL}/api/simulate-new-mail`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(mailData)
+        body: JSON.stringify(mailData),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        console.log('✅ New mail simulated successfully:', result.fileName);
+        console.log("✅ New mail simulated successfully:", result.fileName);
         return result;
       } else {
-        throw new Error(result.error || 'Failed to simulate new mail');
+        throw new Error(result.error || "Failed to simulate new mail");
       }
     } catch (error) {
-      console.error('❌ Error simulating new mail:', error);
+      console.error("❌ Error simulating new mail:", error);
       throw error;
     }
   };
@@ -137,23 +148,23 @@ export const useRealtimeMailServer = () => {
   const setServerReloadStatus = async (shouldReload) => {
     try {
       const response = await fetch(`${SERVER_URL}/api/set-reload-status`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ shouldReload })
+        body: JSON.stringify({ shouldReload }),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        console.log('✅ Reload status updated:', result.shouldReload);
+        console.log("✅ Reload status updated:", result.shouldReload);
         return result;
       } else {
-        throw new Error(result.error || 'Failed to update reload status');
+        throw new Error(result.error || "Failed to update reload status");
       }
     } catch (error) {
-      console.error('❌ Error updating reload status:', error);
+      console.error("❌ Error updating reload status:", error);
       throw error;
     }
   };
@@ -162,16 +173,16 @@ export const useRealtimeMailServer = () => {
     // Connection status
     isConnected,
     connectionError,
-    
+
     // Mail data
     mailStats,
     reloadStatus,
-    
+
     // Actions
     requestMailStats,
     markMailsAsRead,
     simulateNewMail,
-    setServerReloadStatus
+    setServerReloadStatus,
   };
 };
 
@@ -184,20 +195,20 @@ export const useServerHealth = () => {
   const checkHealth = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${SERVER_URL}/health`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       setHealthData(data);
       return data;
     } catch (err) {
       setError(err.message);
-      console.error('❌ Health check failed:', err);
+      console.error("❌ Health check failed:", err);
       return null;
     } finally {
       setIsLoading(false);
@@ -207,10 +218,10 @@ export const useServerHealth = () => {
   useEffect(() => {
     // Initial health check
     checkHealth();
-    
+
     // Periodic health check every 30 seconds
     const interval = setInterval(checkHealth, 30000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -218,6 +229,6 @@ export const useServerHealth = () => {
     healthData,
     isLoading,
     error,
-    checkHealth
+    checkHealth,
   };
 };

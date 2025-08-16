@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   ModalHeader,
@@ -12,16 +12,17 @@ import {
   Alert,
   Badge,
   Card,
-  CardBody
-} from 'reactstrap';
-import { useGroupContext } from 'contexts/GroupContext.js';
+  CardBody,
+} from "reactstrap";
+import { useGroupContext } from "contexts/GroupContext.js";
+import { API_BASE_URL } from "constants/api.js";
 
 const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
   const [groups, setGroups] = useState([]);
   const [pics, setPics] = useState([]);
-  const [selectedPicId, setSelectedPicId] = useState('');
+  const [selectedPicId, setSelectedPicId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   // Use GroupContext to get sender's group info
   const { getGroupInfo } = useGroupContext();
@@ -37,8 +38,8 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
     }
 
     // Only show PICs that belong to the sender's group
-    return pics.filter(pic =>
-      pic.groups && pic.groups.includes(senderGroupId)
+    return pics.filter(
+      (pic) => pic.groups && pic.groups.includes(senderGroupId)
     );
   };
 
@@ -53,45 +54,45 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
 
   const loadGroups = async () => {
     try {
-      const response = await fetch('/api/groups');
+      const response = await fetch(`${API_BASE_URL}/api/groups`);
       const data = await response.json();
       setGroups(data);
     } catch (err) {
-      setError('Failed to load groups');
+      setError("Failed to load groups");
     }
   };
 
   const loadPics = async () => {
     try {
-      const response = await fetch('/api/pics');
+      const response = await fetch(`${API_BASE_URL}/api/pics`);
       const data = await response.json();
       setPics(data);
     } catch (err) {
-      setError('Failed to load PICs');
+      setError("Failed to load PICs");
     }
   };
 
   const handleAssign = async () => {
     if (!selectedPicId) {
-      setError('Please select a PIC');
+      setError("Please select a PIC");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await fetch('/api/assign-mail', {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/api/assign-mail`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           mailId: mailData.id,
           groupId: null,
           picId: selectedPicId,
-          assignmentType: 'pic'
-        })
+          assignmentType: "pic",
+        }),
       });
 
       const result = await response.json();
@@ -99,37 +100,35 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
         onAssignSuccess && onAssignSuccess(result.mail);
         handleClose();
       } else {
-        setError(result.error || 'Failed to assign mail');
+        setError(result.error || "Failed to assign mail");
       }
     } catch (err) {
-      setError('Failed to assign mail');
+      setError("Failed to assign mail");
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setSelectedPicId('');
-    setError('');
+    setSelectedPicId("");
+    setError("");
     toggle();
   };
 
   const getSelectedAssignee = () => {
     if (selectedPicId) {
-      const pic = pics.find(p => p.id === selectedPicId);
-      return pic ? `PIC: ${pic.name}` : '';
+      const pic = pics.find((p) => p.id === selectedPicId);
+      return pic ? `PIC: ${pic.name}` : "";
     }
-    return '';
+    return "";
   };
 
   return (
     <Modal isOpen={isOpen} toggle={handleClose} size="lg">
-      <ModalHeader toggle={handleClose}>
-        Assign Mail
-      </ModalHeader>
+      <ModalHeader toggle={handleClose}>Assign Mail</ModalHeader>
       <ModalBody>
         {error && (
-          <Alert color="danger" toggle={() => setError('')}>
+          <Alert color="danger" toggle={() => setError("")}>
             {error}
           </Alert>
         )}
@@ -138,8 +137,11 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
           <div className="mb-4">
             <h5>Mail Details:</h5>
             <div className="border p-3 rounded">
-              <p><strong>Subject:</strong> {mailData.Subject || 'No Subject'}</p>
-              <p><strong>From:</strong>
+              <p>
+                <strong>Subject:</strong> {mailData.Subject || "No Subject"}
+              </p>
+              <p>
+                <strong>From:</strong>
                 <span className="ml-2">
                   {mailData.From}
                   {senderGroupInfo?.isGroup && (
@@ -149,15 +151,24 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
                   )}
                 </span>
               </p>
-              <p><strong>Date:</strong> {new Date(mailData.Date).toLocaleString()}</p>
+              <p>
+                <strong>Date:</strong>{" "}
+                {new Date(mailData.Date).toLocaleString()}
+              </p>
               {mailData.assignedTo && (
                 <div>
                   <strong>Currently Assigned To:</strong>
                   <Badge color="info" className="ml-2">
-                    {mailData.assignedTo.type === 'group' ?
-                      `Group: ${groups.find(g => g.id === mailData.assignedTo.groupId)?.name || 'Unknown'}` :
-                      `PIC: ${pics.find(p => p.id === mailData.assignedTo.picId)?.name || 'Unknown'}`
-                    }
+                    {mailData.assignedTo.type === "group"
+                      ? `Group: ${
+                          groups.find(
+                            (g) => g.id === mailData.assignedTo.groupId
+                          )?.name || "Unknown"
+                        }`
+                      : `PIC: ${
+                          pics.find((p) => p.id === mailData.assignedTo.picId)
+                            ?.name || "Unknown"
+                        }`}
                   </Badge>
                 </div>
               )}
@@ -170,13 +181,24 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
                   <div className="d-flex align-items-center">
                     <i className="ni ni-bulb-61 text-warning mr-2"></i>
                     <div>
-                      <strong className="text-primary">Group Assignment:</strong>
+                      <strong className="text-primary">
+                        Group Assignment:
+                      </strong>
                       <p className="mb-0 text-sm text-muted">
-                        This email is from <strong>{senderGroupInfo.displayName}</strong> group.
+                        This email is from{" "}
+                        <strong>{senderGroupInfo.displayName}</strong> group.
                         {filteredPics.length > 0 ? (
-                          <span> Showing {filteredPics.length} PIC(s) from this group.</span>
+                          <span>
+                            {" "}
+                            Showing {filteredPics.length} PIC(s) from this
+                            group.
+                          </span>
                         ) : (
-                          <span> No PICs found in this group. Please add PICs to this group first.</span>
+                          <span>
+                            {" "}
+                            No PICs found in this group. Please add PICs to this
+                            group first.
+                          </span>
                         )}
                       </p>
                     </div>
@@ -194,7 +216,8 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
                     <div>
                       <strong className="text-white">No Group Found:</strong>
                       <p className="mb-0 text-sm text-white">
-                        This email sender is not assigned to any group. Please add the sender to a group first to enable assignment.
+                        This email sender is not assigned to any group. Please
+                        add the sender to a group first to enable assignment.
                       </p>
                     </div>
                   </div>
@@ -211,7 +234,11 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
               <Label>
                 Select PIC
                 {senderGroupInfo?.isGroup && filteredPics.length > 0 && (
-                  <Badge color="success" className="ml-2" style={{ fontSize: '0.7rem' }}>
+                  <Badge
+                    color="success"
+                    className="ml-2"
+                    style={{ fontSize: "0.7rem" }}
+                  >
                     {filteredPics.length} from {senderGroupInfo.displayName}
                   </Badge>
                 )}
@@ -224,9 +251,9 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
                 <option value="">-- Select PIC --</option>
 
                 {/* Show only PICs from sender's group */}
-                {filteredPics.map(pic => (
+                {filteredPics.map((pic) => (
                   <option key={pic.id} value={pic.id}>
-                    {pic.name} ({pic.email}) {pic.isLeader ? '- Leader' : ''}
+                    {pic.name} ({pic.email}) {pic.isLeader ? "- Leader" : ""}
                   </option>
                 ))}
               </Input>
@@ -235,10 +262,13 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
               {selectedPicId && (
                 <div className="mt-2">
                   {(() => {
-                    const selectedPic = pics.find(p => p.id === selectedPicId);
+                    const selectedPic = pics.find(
+                      (p) => p.id === selectedPicId
+                    );
                     if (!selectedPic) return null;
 
-                    const isFromSenderGroup = selectedPic.groups?.includes(senderGroupId);
+                    const isFromSenderGroup =
+                      selectedPic.groups?.includes(senderGroupId);
 
                     return (
                       <div className="text-sm">
@@ -246,16 +276,25 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
                           color={isFromSenderGroup ? "success" : "secondary"}
                           className="mr-2"
                         >
-                          {isFromSenderGroup ? "✅ Same Group" : "📋 Different Group"}
+                          {isFromSenderGroup
+                            ? "✅ Same Group"
+                            : "📋 Different Group"}
                         </Badge>
-                        {selectedPic.groups && selectedPic.groups.length > 0 && (
-                          <span className="text-muted">
-                            Groups: {selectedPic.groups.map(groupId => {
-                              const group = groups.find(g => g.id === groupId);
-                              return group?.name;
-                            }).filter(Boolean).join(', ')}
-                          </span>
-                        )}
+                        {selectedPic.groups &&
+                          selectedPic.groups.length > 0 && (
+                            <span className="text-muted">
+                              Groups:{" "}
+                              {selectedPic.groups
+                                .map((groupId) => {
+                                  const group = groups.find(
+                                    (g) => g.id === groupId
+                                  );
+                                  return group?.name;
+                                })
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          )}
                       </div>
                     );
                   })()}
@@ -265,13 +304,25 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
           ) : (
             /* Show message when no PICs available or sender not in group */
             <div className="text-center py-4">
-              <i className="ni ni-fat-remove text-muted" style={{ fontSize: '2rem' }}></i>
+              <i
+                className="ni ni-fat-remove text-muted"
+                style={{ fontSize: "2rem" }}
+              ></i>
               <h5 className="text-muted mt-3">Cannot Assign</h5>
               <p className="text-muted">
                 {!senderGroupInfo?.isGroup ? (
-                  <>This email sender is not assigned to any group.<br />Please add the sender to a group first.</>
+                  <>
+                    This email sender is not assigned to any group.
+                    <br />
+                    Please add the sender to a group first.
+                  </>
                 ) : (
-                  <>No PICs found in the <strong>{senderGroupInfo.displayName}</strong> group.<br />Please add PICs to this group first.</>
+                  <>
+                    No PICs found in the{" "}
+                    <strong>{senderGroupInfo.displayName}</strong> group.
+                    <br />
+                    Please add PICs to this group first.
+                  </>
                 )}
               </p>
             </div>
@@ -293,7 +344,7 @@ const AssignModal = ({ isOpen, toggle, mailData, onAssignSuccess }) => {
           onClick={handleAssign}
           disabled={loading || !selectedPicId || filteredPics.length === 0}
         >
-          {loading ? 'Assigning...' : 'Assign to PIC'}
+          {loading ? "Assigning..." : "Assign to PIC"}
         </Button>
         <Button color="secondary" onClick={handleClose}>
           Cancel

@@ -1,9 +1,29 @@
 // src/constants/api.js
 
 // Define the base URL for the API.
-// In development, this will be proxied by react-scripts via the "proxy" field in package.json.
-// In production, the frontend and backend are expected to be served from the same origin.
-export const API_BASE_URL = "http://localhost:3002";
+// Automatically detect the current host and use port 3002 for backend
+const getApiBaseUrl = () => {
+  // If running in development mode and accessing via localhost, use localhost
+  if (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    return "http://localhost:3002";
+  }
+
+  // For network access (other machines), use the current hostname with port 3002
+  return `http://${window.location.hostname}:3002`;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
+
+// Debug logging
+console.log("🔧 API Configuration:", {
+  hostname: window.location.hostname,
+  port: window.location.port,
+  protocol: window.location.protocol,
+  API_BASE_URL: API_BASE_URL,
+});
 
 export const API_ENDPOINTS = {
   LOGIN: `${API_BASE_URL}/api/login`,

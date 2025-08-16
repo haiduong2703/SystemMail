@@ -19,7 +19,12 @@
 // reactstrap components
 import { Card, CardBody, CardTitle, Container, Row, Col } from "reactstrap";
 import { useNavigate } from "react-router-dom";
-import { useMailStats, useDetailedStats, useNotificationCounts, usePICOverdueRanking } from "contexts/MailContext.js";
+import {
+  useMailStats,
+  useDetailedStats,
+  useNotificationCounts,
+  usePICOverdueRanking,
+} from "contexts/MailContext.js";
 import NewMailBadge from "components/NewMailBadge/NewMailBadge.js";
 import { useNewMailLogic } from "hooks/useNewMailLogic.js";
 
@@ -33,24 +38,27 @@ const MailHeader = () => {
 
   // Navigation functions
   const handleTotalMailsClick = () => {
-    navigate('/admin/all-mails');
+    navigate("/admin/all-mails");
   };
 
   const handleOnTimeClick = () => {
-    navigate('/admin/valid-mails');
+    navigate("/admin/valid-mails");
   };
 
   const handleOverdueClick = () => {
-    navigate('/admin/expired-mails');
+    navigate("/admin/expired-mails");
   };
 
   const handleReviewClick = () => {
-    navigate('/admin/review-mails');
+    navigate("/admin/review-mails");
   };
 
   return (
     <>
-      <div className="header bg-gradient-info pb-4 pt-3 pt-md-4" style={{ position: 'relative', zIndex: 1 }}>
+      <div
+        className="header bg-gradient-info pb-4 pt-3 pt-md-4"
+        style={{ position: "relative", zIndex: 1 }}
+      >
         <Container fluid>
           <div className="header-body">
             {/* Card stats - 8 cards layout */}
@@ -60,9 +68,13 @@ const MailHeader = () => {
                 <Card
                   className="card-stats mb-4 mb-xl-0 cursor-pointer"
                   onClick={handleTotalMailsClick}
-                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "translateY(-2px)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "translateY(0)")
+                  }
                 >
                   <CardBody>
                     <Row>
@@ -98,9 +110,13 @@ const MailHeader = () => {
                 <Card
                   className="card-stats mb-4 mb-xl-0 cursor-pointer"
                   onClick={handleOnTimeClick}
-                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "translateY(-2px)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "translateY(0)")
+                  }
                 >
                   <CardBody>
                     <Row>
@@ -123,7 +139,8 @@ const MailHeader = () => {
                     </Row>
                     <p className="mt-3 mb-0 text-muted text-sm">
                       <span className="text-success mr-2">
-                        <i className="fa fa-arrow-up" /> {mailStats.validPercentage}%
+                        <i className="fa fa-arrow-up" />{" "}
+                        {mailStats.validPercentage}%
                       </span>
                       <span className="text-nowrap">of all mails</span>
                     </p>
@@ -136,9 +153,13 @@ const MailHeader = () => {
                 <Card
                   className="card-stats mb-4 mb-xl-0 cursor-pointer"
                   onClick={handleOverdueClick}
-                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "translateY(-2px)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "translateY(0)")
+                  }
                 >
                   <CardBody>
                     <Row>
@@ -162,6 +183,7 @@ const MailHeader = () => {
                     <p className="mt-3 mb-0 text-muted text-sm">
                       <span className="text-danger mr-2">
                         <i className="fas fa-exclamation-triangle" />
+                        {mailStats.expiredPercentage}%
                       </span>
                       <span className="text-nowrap">Expired mails</span>
                     </p>
@@ -174,9 +196,13 @@ const MailHeader = () => {
                 <Card
                   className="card-stats mb-4 mb-xl-0 cursor-pointer"
                   onClick={handleReviewClick}
-                  style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "translateY(-2px)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "translateY(0)")
+                  }
                 >
                   <CardBody>
                     <Row>
@@ -200,7 +226,14 @@ const MailHeader = () => {
                     <p className="mt-3 mb-0 text-muted text-sm">
                       <span className="text-primary mr-2">
                         <i className="fa fa-arrow-up" />
-                        {mailStats.total > 0 ? Math.round(((mailStats.reviewMailCount || 0) / mailStats.total) * 100) : 0}%
+                        {mailStats.total > 0
+                          ? Math.round(
+                              ((mailStats.reviewMailCount || 0) /
+                                mailStats.total) *
+                                100
+                            )
+                          : 0}
+                        %
                       </span>
                       <span className="text-nowrap">needs review</span>
                     </p>

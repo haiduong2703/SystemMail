@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState } from 'react';
-import { useMailData } from '../hooks/useMailData';
-import { useRealtimeMailServer } from 'hooks/useRealtimeMailServer.js';
-import { formatDate } from 'utils/mailUtils';
-import BlinkingTitleController from 'components/BlinkingTitleController/BlinkingTitleController';
+import React, { createContext, useContext, useState } from "react";
+import { useMailData } from "../hooks/useMailData";
+import { useRealtimeMailServer } from "hooks/useRealtimeMailServer.js";
+import { formatDate } from "utils/mailUtils";
+import BlinkingTitleController from "components/BlinkingTitleController/BlinkingTitleController";
 
 // Tạo Mail Context
 const MailContext = createContext();
@@ -20,9 +20,11 @@ export const MailProvider = ({ children }) => {
   // Function to refresh mail data
   const refreshMails = () => {
     // Trigger reload by dispatching custom event
-    window.dispatchEvent(new CustomEvent('mailDataReload', {
-      detail: { manual: true }
-    }));
+    window.dispatchEvent(
+      new CustomEvent("mailDataReload", {
+        detail: { manual: true },
+      })
+    );
   };
 
   const value = {
@@ -60,7 +62,7 @@ export const MailProvider = ({ children }) => {
 export const useMailContext = () => {
   const context = useContext(MailContext);
   if (!context) {
-    throw new Error('useMailContext must be used within a MailProvider');
+    throw new Error("useMailContext must be used within a MailProvider");
   }
   return context;
 };
@@ -68,37 +70,39 @@ export const useMailContext = () => {
 // Custom hook to get only valid (dung han) mails - exclude review mails
 export const useValidMails = () => {
   const { mails } = useMailContext();
-  return mails.filter(mail => !mail.isExpired && mail.category !== "ReviewMail");
+  return mails.filter(
+    (mail) => !mail.isExpired && mail.category !== "ReviewMail"
+  );
 };
 
-// Custom hook to get only expired (qua han) mails - TẤT CẢ
+// Custom hook to get only expired (qua han) mails - TẤT CẢ (exclude ReviewMail category)
 export const useExpiredMails = () => {
   const { mails } = useMailContext();
-  return mails.filter(mail => mail.isExpired);
+  return mails.filter(
+    (mail) => mail.isExpired && mail.category !== "ReviewMail"
+  );
 };
 
 // Custom hook to get expired mails - CHƯA TRẢ LỜI (QuaHan/chuaRep)
 export const useExpiredUnrepliedMails = () => {
   const { mails } = useMailContext();
-  return mails.filter(mail =>
-    mail.category === "QuaHan" &&
-    mail.status === "chuaRep"
+  return mails.filter(
+    (mail) => mail.category === "QuaHan" && mail.status === "chuaRep"
   );
 };
 
 // Custom hook to get expired mails - ĐÃ TRẢ LỜI (QuaHan/daRep)
 export const useExpiredRepliedMails = () => {
   const { mails } = useMailContext();
-  return mails.filter(mail =>
-    mail.category === "QuaHan" &&
-    mail.status === "daRep"
+  return mails.filter(
+    (mail) => mail.category === "QuaHan" && mail.status === "daRep"
   );
 };
 
 // Custom hook to get review mails (ReviewMail)
 export const useReviewMails = () => {
   const { mails } = useMailContext();
-  return mails.filter(mail => mail.category === "ReviewMail");
+  return mails.filter((mail) => mail.category === "ReviewMail");
 };
 
 // Helper function to check if mail is expired (over 24 hours) - same logic as ValidMails
@@ -126,7 +130,7 @@ const isMailExpiredClientSide = (dateArray) => {
 
     return hoursDiff > 24;
   } catch (error) {
-    console.error('Error checking mail expiry:', error);
+    console.error("Error checking mail expiry:", error);
     return false;
   }
 };
@@ -138,28 +142,32 @@ export const useMailStats = () => {
 
   // Use EXACT same logic as individual hooks for consistency
   // ValidMails logic: !isExpired && category !== "ReviewMail"
-  const validMails = mails.filter(mail => !mail.isExpired && mail.category !== "ReviewMail");
+  const validMails = mails.filter(
+    (mail) => !mail.isExpired && mail.category !== "ReviewMail"
+  );
 
   // ExpiredMails logic: isExpired (server-side only, no client-side check)
-  const expiredMails = mails.filter(mail => mail.isExpired);
+  const expiredMails = mails.filter((mail) => mail.isExpired);
 
   // ReviewMails logic: category === "ReviewMail"
-  const reviewMails = mails.filter(mail => mail.category === "ReviewMail");
+  const reviewMails = mails.filter((mail) => mail.category === "ReviewMail");
 
   const valid = validMails.length;
   const expired = expiredMails.length;
   const reviewMailCount = reviewMails.length;
 
   // Valid mails breakdown (using filtered validMails)
-  const validReplied = validMails.filter(mail => mail.isReplied).length;
-  const validUnreplied = validMails.filter(mail => !mail.isReplied).length;
+  const validReplied = validMails.filter((mail) => mail.isReplied).length;
+  const validUnreplied = validMails.filter((mail) => !mail.isReplied).length;
 
   // Expired mails breakdown (using filtered expiredMails)
-  const expiredReplied = expiredMails.filter(mail => mail.isReplied).length;
-  const expiredUnreplied = expiredMails.filter(mail => !mail.isReplied).length;
+  const expiredReplied = expiredMails.filter((mail) => mail.isReplied).length;
+  const expiredUnreplied = expiredMails.filter(
+    (mail) => !mail.isReplied
+  ).length;
 
   // Debug logging
-  console.log('📊 Mail Stats Debug (Fixed Logic):', {
+  console.log("📊 Mail Stats Debug (Fixed Logic):", {
     total,
     valid,
     expired,
@@ -172,29 +180,31 @@ export const useMailStats = () => {
       validMails: `${valid} (not expired + not review)`,
       expiredMails: `${expired} (server isExpired only)`,
       reviewMails: `${reviewMailCount} (category = ReviewMail)`,
-      totalCheck: `${valid + expired + reviewMailCount} should equal or be close to ${total}`
+      totalCheck: `${
+        valid + expired + reviewMailCount
+      } should equal or be close to ${total}`,
     },
-    sampleValidMails: validMails.slice(0, 2).map(m => ({
+    sampleValidMails: validMails.slice(0, 2).map((m) => ({
       subject: m.Subject?.substring(0, 30),
       isExpired: m.isExpired,
       isReplied: m.isReplied,
       category: m.category,
-      date: m.Date
+      date: m.Date,
     })),
-    sampleExpiredMails: expiredMails.slice(0, 2).map(m => ({
+    sampleExpiredMails: expiredMails.slice(0, 2).map((m) => ({
       subject: m.Subject?.substring(0, 30),
       isExpired: m.isExpired,
       isReplied: m.isReplied,
       category: m.category,
-      date: m.Date
+      date: m.Date,
     })),
-    sampleReviewMails: reviewMails.slice(0, 2).map(m => ({
+    sampleReviewMails: reviewMails.slice(0, 2).map((m) => ({
       subject: m.Subject?.substring(0, 30),
       isExpired: m.isExpired,
       isReplied: m.isReplied,
       category: m.category,
-      date: m.Date
-    }))
+      date: m.Date,
+    })),
   });
 
   return {
@@ -207,16 +217,16 @@ export const useMailStats = () => {
     expiredUnreplied,
     reviewMailCount,
     validPercentage: total > 0 ? Math.round((valid / total) * 100) : 0,
-    expiredPercentage: total > 0 ? Math.round((expired / total) * 100) : 0
+    expiredPercentage: total > 0 ? Math.round((expired / total) * 100) : 0,
   };
 };
 
 export const useMailTypeStats = () => {
   const { mails } = useMailContext();
 
-  const toMails = mails.filter(mail => mail.Type === "To").length;
-  const ccMails = mails.filter(mail => mail.Type === "CC").length;
-  const bccMails = mails.filter(mail => mail.Type === "BCC").length;
+  const toMails = mails.filter((mail) => mail.Type === "To").length;
+  const ccMails = mails.filter((mail) => mail.Type === "CC").length;
+  const bccMails = mails.filter((mail) => mail.Type === "BCC").length;
   const total = mails.length;
 
   return {
@@ -225,7 +235,7 @@ export const useMailTypeStats = () => {
     bcc: bccMails,
     toPercentage: total > 0 ? Math.round((toMails / total) * 100) : 0,
     ccPercentage: total > 0 ? Math.round((ccMails / total) * 100) : 0,
-    bccPercentage: total > 0 ? Math.round((bccMails / total) * 100) : 0
+    bccPercentage: total > 0 ? Math.round((bccMails / total) * 100) : 0,
   };
 };
 
@@ -233,7 +243,7 @@ export const useTopSenders = () => {
   const { mails } = useMailContext();
 
   const senderCount = {};
-  mails.forEach(mail => {
+  mails.forEach((mail) => {
     senderCount[mail.From] = (senderCount[mail.From] || 0) + 1;
   });
 
@@ -243,7 +253,8 @@ export const useTopSenders = () => {
     .map(([sender, count]) => ({
       sender,
       count,
-      percentage: mails.length > 0 ? Math.round((count / mails.length) * 100) : 0
+      percentage:
+        mails.length > 0 ? Math.round((count / mails.length) * 100) : 0,
     }));
 };
 
@@ -252,8 +263,8 @@ export const useRecentMails = (limit = 5) => {
 
   return mails
     .sort((a, b) => {
-      const dateA = new Date(a.Date[0] + 'T' + a.Date[1]);
-      const dateB = new Date(b.Date[0] + 'T' + b.Date[1]);
+      const dateA = new Date(a.Date[0] + "T" + a.Date[1]);
+      const dateB = new Date(b.Date[0] + "T" + b.Date[1]);
       return dateB - dateA;
     })
     .slice(0, limit);
@@ -261,25 +272,33 @@ export const useRecentMails = (limit = 5) => {
 
 export const useMailsByCategory = (category) => {
   const { mails } = useMailContext();
-  return mails.filter(mail => mail.category === category);
+  return mails.filter((mail) => mail.category === category);
 };
 
 export const useMailsByStatus = (status) => {
   const { mails } = useMailContext();
-  return mails.filter(mail => mail.status === status);
+  return mails.filter((mail) => mail.status === status);
 };
 
 export const useMailsByCategoryAndStatus = (category, status) => {
   const { mails } = useMailContext();
-  return mails.filter(mail => mail.category === category && mail.status === status);
+  return mails.filter(
+    (mail) => mail.category === category && mail.status === status
+  );
 };
 
 export const useDetailedStats = () => {
   const { mails } = useMailContext();
 
-  const dungHanMustRep = mails.filter(mail => mail.category === "DungHan" && mail.status === "mustRep").length;
-  const quaHanChuaRep = mails.filter(mail => mail.category === "QuaHan" && mail.status === "chuaRep").length;
-  const quaHanDaRep = mails.filter(mail => mail.category === "QuaHan" && mail.status === "daRep").length;
+  const dungHanMustRep = mails.filter(
+    (mail) => mail.category === "DungHan" && mail.status === "mustRep"
+  ).length;
+  const quaHanChuaRep = mails.filter(
+    (mail) => mail.category === "QuaHan" && mail.status === "chuaRep"
+  ).length;
+  const quaHanDaRep = mails.filter(
+    (mail) => mail.category === "QuaHan" && mail.status === "daRep"
+  ).length;
 
   return {
     dungHanMustRep,
@@ -288,7 +307,7 @@ export const useDetailedStats = () => {
     totalDungHan: dungHanMustRep,
     totalQuaHan: quaHanChuaRep + quaHanDaRep,
     totalChuaTraLoi: dungHanMustRep + quaHanChuaRep,
-    totalDaTraLoi: quaHanDaRep
+    totalDaTraLoi: quaHanDaRep,
   };
 };
 
@@ -297,14 +316,12 @@ export const useNotificationCounts = () => {
   const { mails } = useMailContext();
 
   // Logic mới: NEW badge dựa vào việc có mail trong folder hay không
-  const dungHanUnreplied = mails.filter(mail =>
-    mail.category === "DungHan" &&
-    mail.status === "mustRep"
+  const dungHanUnreplied = mails.filter(
+    (mail) => mail.category === "DungHan" && mail.status === "mustRep"
   ).length;
 
-  const quaHanUnreplied = mails.filter(mail =>
-    mail.category === "QuaHan" &&
-    mail.status === "chuaRep"
+  const quaHanUnreplied = mails.filter(
+    (mail) => mail.category === "QuaHan" && mail.status === "chuaRep"
   ).length;
 
   // NEW logic: Hiển thị badge khi có mail trong các folder này
@@ -316,7 +333,7 @@ export const useNotificationCounts = () => {
     showDungHanBadge: dungHanUnreplied > 0,
     showQuaHanBadge: quaHanUnreplied > 0,
     hasNewMails,
-    totalNewCount: dungHanUnreplied + quaHanUnreplied
+    totalNewCount: dungHanUnreplied + quaHanUnreplied,
   };
 };
 
@@ -325,14 +342,13 @@ export const useReloadStatus = () => {
   const { mails } = useMailContext();
 
   // Tìm file new.json để lấy reload status
-  const reloadStatusFile = mails.find(mail =>
-    mail.fileName === "new.json" &&
-    mail.category === "DungHan"
+  const reloadStatusFile = mails.find(
+    (mail) => mail.fileName === "new.json" && mail.category === "DungHan"
   );
 
   return {
     shouldReload: reloadStatusFile?.ReloadStatus || false,
-    reloadData: reloadStatusFile
+    reloadData: reloadStatusFile,
   };
 };
 
@@ -341,19 +357,20 @@ export const usePICOverdueRanking = () => {
   const { mails } = useMailContext();
 
   // Lọc mail quá hạn chưa trả lời và có assign PIC
-  const overdueUnrepliedMails = mails.filter(mail =>
-    (mail.isExpired || isMailExpiredClientSide(mail.Date)) &&
-    !mail.isReplied &&
-    mail.assignedTo?.type === 'pic' &&
-    mail.assignedTo?.picName
+  const overdueUnrepliedMails = mails.filter(
+    (mail) =>
+      (mail.isExpired || isMailExpiredClientSide(mail.Date)) &&
+      !mail.isReplied &&
+      mail.assignedTo?.type === "pic" &&
+      mail.assignedTo?.picName
   );
 
   // Đếm số mail theo từng PIC
   const picCounts = {};
-  overdueUnrepliedMails.forEach(mail => {
+  overdueUnrepliedMails.forEach((mail) => {
     const picName = mail.assignedTo.picName;
-    const picEmail = mail.assignedTo.picEmail || '';
-    const picId = mail.assignedTo.picId || '';
+    const picEmail = mail.assignedTo.picEmail || "";
+    const picId = mail.assignedTo.picId || "";
 
     if (!picCounts[picName]) {
       picCounts[picName] = {
@@ -361,7 +378,7 @@ export const usePICOverdueRanking = () => {
         email: picEmail,
         id: picId,
         count: 0,
-        mails: []
+        mails: [],
       };
     }
     picCounts[picName].count++;
@@ -383,7 +400,7 @@ export const usePICOverdueRanking = () => {
     ranking,
     totalOverdueUnreplied,
     topPIC,
-    overdueUnrepliedMails
+    overdueUnrepliedMails,
   };
 };
 
@@ -391,8 +408,7 @@ export const usePICOverdueRanking = () => {
 export const useNewMails = () => {
   const { mails } = useMailContext();
 
-  return mails.filter(mail =>
-    mail.category === "DungHan" &&
-    mail.Status === "New"
+  return mails.filter(
+    (mail) => mail.category === "DungHan" && mail.Status === "New"
   );
 };
