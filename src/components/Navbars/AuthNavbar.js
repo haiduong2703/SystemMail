@@ -30,6 +30,9 @@ import {
 } from "reactstrap";
 
 const AdminNavbar = () => {
+  // Lấy pathname để xác định đang ở trang login/auth
+  const pathname = window.location.pathname;
+  const isAuthPage = pathname.startsWith("/auth");
   return (
     <>
       <Navbar className="navbar-top navbar-horizontal navbar-dark" expand="md">
@@ -63,12 +66,15 @@ const AdminNavbar = () => {
               </Row>
             </div>
             <Nav className="ml-auto" navbar>
-              <NavItem>
-                <NavLink className="nav-link-icon" to="/" tag={Link}>
-                  <i className="ni ni-planet" />
-                  <span className="nav-link-inner--text">Dashboard</span>
-                </NavLink>
-              </NavItem>
+              {/* Ẩn Dashboard và Profile khi ở trang login/auth */}
+              {!isAuthPage && (
+                <NavItem>
+                  <NavLink className="nav-link-icon" to="/" tag={Link}>
+                    <i className="ni ni-planet" />
+                    <span className="nav-link-inner--text">Dashboard</span>
+                  </NavLink>
+                </NavItem>
+              )}
               <NavItem>
                 <NavLink
                   className="nav-link-icon"
@@ -85,16 +91,19 @@ const AdminNavbar = () => {
                   <span className="nav-link-inner--text">Login</span>
                 </NavLink>
               </NavItem>
-              <NavItem>
-                <NavLink
-                  className="nav-link-icon"
-                  to="/admin/user-profile"
-                  tag={Link}
-                >
-                  <i className="ni ni-single-02" />
-                  <span className="nav-link-inner--text">Profile</span>
-                </NavLink>
-              </NavItem>
+              {/* Ẩn Profile khi ở trang login/auth */}
+              {!isAuthPage && (
+                <NavItem>
+                  <NavLink
+                    className="nav-link-icon"
+                    to="/admin/user-profile"
+                    tag={Link}
+                  >
+                    <i className="ni ni-single-02" />
+                    <span className="nav-link-inner--text">Profile</span>
+                  </NavLink>
+                </NavItem>
+              )}
             </Nav>
           </UncontrolledCollapse>
         </Container>

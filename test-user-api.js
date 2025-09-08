@@ -4,7 +4,7 @@
  */
 
 // Base URL for API
-const API_BASE = 'http://localhost:3001';
+const API_BASE = 'http://localhost:3002';
 
 // Test data
 const testUser = {

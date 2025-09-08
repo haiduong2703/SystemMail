@@ -199,7 +199,7 @@ const Register = () => {
                     </div>
                   </div>
                   
-                  <div className="form-group mb-3">
+                  {/* <div className="form-group mb-3">
                     <div className="input-group input-group-alternative">
                       <div className="input-group-prepend">
                         <span className="input-group-text">
@@ -218,7 +218,7 @@ const Register = () => {
                         <option value="manager">Manager</option>
                       </select>
                     </div>
-                  </div>
+                  </div> */}
                   
                   <div className="form-group mb-3">
                     <div className="input-group input-group-alternative">

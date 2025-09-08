@@ -17,9 +17,10 @@ export const GroupProvider = ({ children }) => {
   // Load groups from API and localStorage on mount
   useEffect(() => {
     const loadGroups = async () => {
+      const { API_BASE_URL } = require("constants/api.js");
       try {
         // Try to load from API first
-        const response = await fetch('/api/groups');
+        const response = await fetch(`${API_BASE_URL}/api/groups`);
         if (response.ok) {
           const apiGroups = await response.json();
           if (apiGroups && apiGroups.length > 0) {
@@ -50,7 +51,6 @@ export const GroupProvider = ({ children }) => {
         setGroups(defaultGroups);
       }
     };
-
     loadGroups();
   }, []);
 
@@ -64,7 +64,8 @@ export const GroupProvider = ({ children }) => {
   // Refresh groups from API
   const refreshGroups = async () => {
     try {
-      const response = await fetch('/api/groups');
+      const { API_BASE_URL } = require("constants/api.js");
+      const response = await fetch(`${API_BASE_URL}/api/groups`);
       if (response.ok) {
         const apiGroups = await response.json();
         console.log('Refreshed groups from API:', apiGroups);

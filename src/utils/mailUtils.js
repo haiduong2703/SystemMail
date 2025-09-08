@@ -173,12 +173,9 @@ export const filterMailsByDateRange = (mails, startDate, endDate) => {
     return mails;
   }
 
+  // Giữ nguyên giờ phút giây để lọc chính xác theo từng phút
   const start = startDate ? new Date(startDate) : null;
   const end = endDate ? new Date(endDate) : null;
-
-  // Set time to 00:00:00 for start date and 23:59:59 for end date for inclusive filtering
-  if (start) start.setHours(0, 0, 0, 0);
-  if (end) end.setHours(23, 59, 59, 999);
 
   return mails.filter((mail) => {
     if (!mail.Date) return false;

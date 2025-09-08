@@ -19,7 +19,7 @@ export const loadMailsFromFiles = async () => {
   console.log('🚀 Đang tải dữ liệu mail từ API server...');
 
   try {
-    const response = await fetch('http://localhost:3001/api/mails');
+    const response = await fetch('http://localhost:3002/api/mails');
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

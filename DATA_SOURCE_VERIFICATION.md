@@ -7,17 +7,17 @@
 #### **1. AllMails.js (Tất cả mail):**
 - **✅ ĐÚNG:** Sử dụng `useMailContext()` 
 - **✅ ĐÚNG:** Lấy dữ liệu từ `mails` array
-- **✅ ĐÚNG:** Dữ liệu từ API `http://localhost:3001/api/mails`
+- **✅ ĐÚNG:** Dữ liệu từ API `http://localhost:3002/api/mails`
 
 #### **2. ValidMails.js (Mail đúng hạn):**
 - **✅ ĐÚNG:** Sử dụng `useValidMails()` 
 - **✅ ĐÚNG:** Filter từ MailContext: `mails.filter(mail => !mail.isExpired)`
-- **✅ ĐÚNG:** Dữ liệu từ API `http://localhost:3001/api/mails`
+- **✅ ĐÚNG:** Dữ liệu từ API `http://localhost:3002/api/mails`
 
 #### **3. ExpiredMails.js (Mail quá hạn):**
 - **✅ ĐÚNG:** Sử dụng `useExpiredMails()`
 - **✅ ĐÚNG:** Filter từ MailContext: `mails.filter(mail => mail.isExpired)`
-- **✅ ĐÚNG:** Dữ liệu từ API `http://localhost:3001/api/mails`
+- **✅ ĐÚNG:** Dữ liệu từ API `http://localhost:3002/api/mails`
 
 ## 🔄 **Data Flow Architecture:**
 
@@ -29,7 +29,7 @@ C:\classifyMail\
         ↓
 mail-server/server.js
         ↓
-API: http://localhost:3001/api/mails
+API: http://localhost:3002/api/mails
         ↓
 useMailData() hook
         ↓
@@ -62,7 +62,7 @@ export const useExpiredMails = () => {
 ### **useMailData.js:**
 ```javascript
 // API call to get data
-const response = await fetch('http://localhost:3001/api/mails');
+const response = await fetch('http://localhost:3002/api/mails');
 const loadedMails = await response.json();
 ```
 
@@ -117,7 +117,7 @@ app.get('/api/mails', (req, res) => {
 ### **✅ Data Consistency:**
 - **Source:** `C:\classifyMail\` directory
 - **Format:** ID-based JSON files
-- **API:** `http://localhost:3001/api/mails`
+- **API:** `http://localhost:3002/api/mails`
 - **Real-time:** WebSocket updates working
 - **Filtering:** Client-side filtering working
 

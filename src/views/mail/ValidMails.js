@@ -635,7 +635,7 @@ const ValidMails = () => {
                     </h3>
                   </div>
                   <div className="col-auto">
-                    <Button
+                    {/* <Button
                       color="info"
                       size="sm"
                       onClick={refreshGroups}
@@ -664,7 +664,7 @@ const ValidMails = () => {
                     >
                       <i className="fas fa-arrow-down mr-1" />
                       Move Selected ({selectedMails.length})
-                    </Button>
+                    </Button> */}
                     <Button
                       color="info"
                       size="sm"

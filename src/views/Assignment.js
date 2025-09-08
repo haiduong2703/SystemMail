@@ -318,8 +318,8 @@ const Assignment = () => {
   const handleCreateGroup = async () => {
     try {
       const url = editingGroup
-        ? `/api/groups/${editingGroup.id}`
-        : "/api/groups";
+        ? `${API_BASE_URL}/api/groups/${editingGroup.id}`
+        : `${API_BASE_URL}/api/groups`;
       const method = editingGroup ? "PUT" : "POST";
 
       const response = await fetch(url, {
@@ -354,7 +354,7 @@ const Assignment = () => {
 
   const handleCreatePic = async () => {
     try {
-      const url = editingPic ? `/api/pics/${editingPic.id}` : "/api/pics";
+      const url = editingPic ? `${API_BASE_URL}/api/pics/${editingPic.id}` : `${API_BASE_URL}/api/pics`;
       const method = editingPic ? "PUT" : "POST";
 
       const response = await fetch(url, {
@@ -452,7 +452,7 @@ const Assignment = () => {
         return;
       }
 
-      const url = editingUser ? `/api/users/${editingUser.id}` : "/api/users";
+  const url = editingUser ? `${API_BASE_URL}/api/users/${editingUser.id}` : `${API_BASE_URL}/api/users`;
       const method = editingUser ? "PUT" : "POST";
 
       // Prepare data to send

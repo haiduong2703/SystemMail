@@ -41,7 +41,7 @@ cd mail-server
 npm start
 ```
 
-Server sẽ chạy trên port **3001** (http://localhost:3001)
+Server sẽ chạy trên port **3002** (http://localhost:3002)
 
 ## 🔌 WebSocket Events
 
@@ -141,7 +141,7 @@ C:\classifyMail\
 
 ### Environment Variables
 ```bash
-PORT=3001                    # Server port (default: 3001)
+PORT=3002                    # Server port (default: 3002)
 MAIL_DATA_PATH=../src/data   # Path to mail data directory
 ```
 
@@ -177,24 +177,24 @@ Server được config để accept connections từ:
 
 ### 1. Test Connection
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:3002/health
 ```
 
 ### 2. Test Mail Stats
 ```bash
-curl http://localhost:3001/api/mail-stats
+curl http://localhost:3002/api/mail-stats
 ```
 
 ### 3. Test New Mail Simulation
 ```bash
-curl -X POST http://localhost:3001/api/simulate-new-mail \
+curl -X POST http://localhost:3002/api/simulate-new-mail \
   -H "Content-Type: application/json" \
   -d '{"subject":"Test Mail","from":"test@example.com"}'
 ```
 
 ### 4. Test WebSocket (trong browser console)
 ```javascript
-const socket = io('http://localhost:3001');
+const socket = io('http://localhost:3002');
 socket.on('connect', () => console.log('Connected!'));
 socket.on('mailStatsUpdate', (data) => console.log('Stats:', data));
 socket.emit('requestMailStats');
@@ -203,7 +203,7 @@ socket.emit('requestMailStats');
 ## 🚨 Troubleshooting
 
 ### Server không start
-- Kiểm tra port 3001 có bị occupied không
+- Kiểm tra port 3002 có bị occupied không
 - Verify Node.js version >= 14.0.0
 - Check dependencies đã install chưa
 

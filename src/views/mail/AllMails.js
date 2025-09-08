@@ -58,6 +58,7 @@ import PaginationControls from "components/PaginationControls/PaginationControls
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
 import CompactClock from "components/RealtimeClock/CompactClock.js";
+import { API_BASE_URL } from "constants/api.js";
 
 const AllMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,7 +111,7 @@ const AllMails = () => {
   // Handle move mail to review
   const handleMoveToReview = async (mail) => {
     try {
-      const response = await fetch('http://localhost:3001/api/move-to-review', {
+      const response = await fetch(`${API_BASE_URL}/api/move-to-review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -331,7 +332,7 @@ const AllMails = () => {
                     </h3>
                   </div>
                   <div className="col-auto">
-                    <Button
+                    {/* <Button
                       color="info"
                       size="sm"
                       onClick={refreshGroups}
@@ -340,7 +341,7 @@ const AllMails = () => {
                     >
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
-                    </Button>
+                    </Button> */}
                     <Button
                       color="warning"
                       size="sm"

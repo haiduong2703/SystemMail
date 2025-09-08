@@ -433,7 +433,7 @@ const ExpiredMails = () => {
                     </h3>
                   </div>
                   <div className="col-auto">
-                    <Button
+                    {/* <Button
                       color="info"
                       size="sm"
                       onClick={refreshGroups}
@@ -442,7 +442,7 @@ const ExpiredMails = () => {
                     >
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
-                    </Button>
+                    </Button> */}
                     <Button
                       color="info"
                       size="sm"

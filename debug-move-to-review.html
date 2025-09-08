@@ -103,7 +103,7 @@
             log('🔍 Testing server connection...');
             
             try {
-                const response = await fetch('http://localhost:3001/api/mail-stats');
+                const response = await fetch('http://localhost:3002/api/mail-stats');
                 
                 if (response.ok) {
                     const data = await response.json();

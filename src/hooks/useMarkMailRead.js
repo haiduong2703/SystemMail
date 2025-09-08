@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from 'constants/api.js';
 
 // Hook để mark mail as read
 export const useMarkMailRead = () => {
@@ -21,7 +22,7 @@ export const useMarkMailRead = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/mark-mail-read', {
+      const response = await fetch(`${API_BASE_URL}/api/mark-mail-read`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

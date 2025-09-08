@@ -58,6 +58,7 @@ import { useMailContext } from "contexts/MailContext.js";
 import { useGroupContext } from "contexts/GroupContext.js";
 import AssignModal from "components/AssignModal.js";
 import CompactClock from "components/RealtimeClock/CompactClock.js";
+import { API_BASE_URL } from "constants/api.js";
 
 const ReviewMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -135,7 +136,7 @@ const ReviewMails = () => {
   const handleMoveBack = async (mail) => {
     try {
       const response = await fetch(
-        "http://localhost:3001/api/move-back-from-review",
+        `${API_BASE_URL}/api/move-back-from-review`,
         {
           method: "POST",
           headers: {
@@ -204,7 +205,7 @@ const ReviewMails = () => {
 
           // Call API to move mail back
           const response = await fetch(
-            "http://localhost:3001/api/move-back-from-review",
+            `${API_BASE_URL}/api/move-back-from-review`,
             {
               method: "POST",
               headers: {
@@ -374,7 +375,7 @@ const ReviewMails = () => {
     try {
       // Call API to update mail status
       const response = await fetch(
-        `http://localhost:3002/api/mails/${mailToChangeStatus.id}/status`,
+        `${API_BASE_URL}/api/mails/${mailToChangeStatus.id}/status`,
         {
           method: "PUT",
           headers: {
@@ -454,7 +455,7 @@ const ReviewMails = () => {
                     </h3>
                   </div>
                   <div className="col-auto">
-                    <Button
+                    {/* <Button
                       color="info"
                       size="sm"
                       onClick={refreshGroups}
@@ -463,7 +464,7 @@ const ReviewMails = () => {
                     >
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
-                    </Button>
+                    </Button> */}
                     <Button
                       color="warning"
                       size="sm"

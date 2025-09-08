@@ -41,7 +41,7 @@ const testUsers = [
 
 // Helper function to make API calls
 const apiCall = async (endpoint, options = {}) => {
-  const url = `http://localhost:3001${endpoint}`;
+  const url = `http://localhost:3002${endpoint}`;
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json'

@@ -56,7 +56,8 @@ const Server = () => {
   const loadServerStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/server-stats");
+  const { API_BASE_URL } = require("constants/api.js");
+  const response = await fetch(`${API_BASE_URL}/api/server-stats`);
       if (response.ok) {
         const data = await response.json();
         setServerStats(data);
@@ -71,7 +72,8 @@ const Server = () => {
   const handleRestartServer = async () => {
     if (window.confirm("Bạn có chắc chắn muốn khởi động lại server?")) {
       try {
-        const response = await fetch("/api/server-restart", { method: "POST" });
+  const { API_BASE_URL } = require("constants/api.js");
+  const response = await fetch(`${API_BASE_URL}/api/server-restart`, { method: "POST" });
         if (response.ok) {
           alert("Server đang được khởi động lại...");
           setTimeout(() => {
@@ -87,7 +89,8 @@ const Server = () => {
   const handleClearCache = async () => {
     if (window.confirm("Bạn có chắc chắn muốn xóa cache?")) {
       try {
-        const response = await fetch("/api/clear-cache", { method: "POST" });
+  const { API_BASE_URL } = require("constants/api.js");
+  const response = await fetch(`${API_BASE_URL}/api/clear-cache`, { method: "POST" });
         if (response.ok) {
           alert("Cache đã được xóa thành công");
           loadServerStats();

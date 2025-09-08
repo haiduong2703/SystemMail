@@ -411,13 +411,38 @@ const loadAllMails = () => {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
           const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
-            id: fileId++,
+            id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
             filePath: path.join(dungHanMustRepPath, file),
             category: "DungHan",
             status: "mustRep",
             isExpired: false,
             isReplied: false,
+            ...enrichedMail,
+          });
+        }
+      });
+    }
+
+    // Load DungHan - rep (đã trả lời)
+    const dungHanRepPath = path.join(MAIL_DATA_PATH, "DungHan/rep");
+    if (fs.existsSync(dungHanRepPath)) {
+      const files = fs
+        .readdirSync(dungHanRepPath)
+        .filter((f) => f.endsWith(".json"));
+      files.forEach((file) => {
+        const mailData = readJsonFile(path.join(dungHanRepPath, file));
+        if (mailData) {
+          const decryptedMail = decryptMailFrom(mailData); // Decrypt here
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
+          allMails.push({
+            id: enrichedMail.id || path.parse(file).name || fileId++,
+            fileName: file,
+            filePath: path.join(dungHanRepPath, file),
+            category: "DungHan",
+            status: "rep",
+            isExpired: false,
+            isReplied: true,
             ...enrichedMail,
           });
         }
@@ -436,7 +461,7 @@ const loadAllMails = () => {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
           const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
-            id: fileId++,
+            id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
             filePath: path.join(quaHanChuaRepPath, file),
             category: "QuaHan",
@@ -461,7 +486,7 @@ const loadAllMails = () => {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
           const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
           allMails.push({
-            id: fileId++,
+            id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
             filePath: path.join(quaHanDaRepPath, file),
             category: "QuaHan",
@@ -481,20 +506,27 @@ const loadAllMails = () => {
         .readdirSync(reviewMailPath)
         .filter((f) => f.endsWith(".json"));
       files.forEach((file) => {
-        const mailData = readJsonFile(path.join(reviewMailPath, file));
+        const filePath = path.join(reviewMailPath, file);
+        const mailData = readJsonFile(filePath);
         if (mailData) {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
           const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
+
+          // Use original ID from mail data, or filename without extension, or auto-increment
+          const mailId = mailData.id || enrichedMail.id || path.parse(file).name || fileId++;
+
           allMails.push({
-            id: fileId++,
+            id: mailId,
             fileName: file,
-            filePath: path.join(reviewMailPath, file),
+            filePath: filePath,
             category: "ReviewMail",
             status: "review",
             isExpired: false,
-            isReplied: false,
+            isReplied: mailData.isReplied || false,
             ...enrichedMail,
           });
+
+          console.log(`[Debug] Loaded ReviewMail: id=${mailId}, file=${file}, path=${filePath}`);
         }
       });
     }
@@ -532,17 +564,62 @@ app.put("/api/mails/:id/status", (req, res) => {
 
     // Find the mail file
     const allMails = loadAllMails();
-    const mail = allMails.find((m) => m.id === id || m.id === parseInt(id));
+    console.log(`[Debug] Total mails loaded: ${allMails.length}`);
+    console.log(`[Debug] Looking for mail with ID: ${id}`);
+
+    // Log first few mails for debugging
+    allMails.slice(0, 3).forEach((m, index) => {
+      console.log(`[Debug] Mail ${index}: id=${m.id}, fileName=${m.fileName}, category=${m.category}`);
+    });
+
+    const mail = allMails.find((m) =>
+      m.id === id ||
+      m.id === parseInt(id) ||
+      path.parse(m.fileName).name === id ||
+      m.fileName === `${id}.json`
+    );
 
     if (!mail) {
+      console.log(`[Debug] Mail not found with ID: ${id}`);
+      console.log(`[Debug] Available mail IDs: ${allMails.map(m => m.id).join(', ')}`);
       return res.status(404).json({
         success: false,
         error: "Mail not found",
       });
     }
 
+    console.log(`[Debug] Found mail: ${mail.Subject}, filePath: ${mail.filePath}, category: ${mail.category}`);
+
     // Read the current mail file
-    const mailData = readJsonFile(mail.filePath);
+    let mailData = readJsonFile(mail.filePath);
+
+    // If file not found at expected path, try to find it in other folders
+    if (!mailData) {
+      console.log(`[Debug] File not found at ${mail.filePath}, searching in other folders...`);
+
+      const searchFolders = [
+        "DungHan/mustRep",
+        "QuaHan/chuaRep",
+        "QuaHan/daRep",
+        "ReviewMail"
+      ];
+
+      for (const folder of searchFolders) {
+        const alternativePath = path.join(MAIL_DATA_PATH, folder, mail.fileName);
+        console.log(`[Debug] Trying: ${alternativePath}`);
+
+        if (fs.existsSync(alternativePath)) {
+          mailData = readJsonFile(alternativePath);
+          if (mailData) {
+            console.log(`[Debug] Found mail at: ${alternativePath}`);
+            // Update the mail object with correct path
+            mail.filePath = alternativePath;
+            break;
+          }
+        }
+      }
+    }
+
     if (!mailData) {
       return res.status(500).json({
         success: false,
@@ -2491,20 +2568,24 @@ app.put("/api/users/:id", (req, res) => {
     });
   }
 
+
   try {
     createUserDirectory();
     let userToUpdate = null;
     let userFilePath = null;
 
-    // Find user by ID
+    // Debug log: show all user files and ids
     if (fs.existsSync(USER_DATA_PATH)) {
       const userFiles = fs.readdirSync(USER_DATA_PATH);
+      console.log("[DEBUG] Looking for user id:", id);
       for (const file of userFiles) {
         if (file.endsWith(".json")) {
-          const userData = readJsonFile(path.join(USER_DATA_PATH, file));
-          if (userData && userData.id === id) {
+          const filePath = path.join(USER_DATA_PATH, file);
+          const userData = readJsonFile(filePath);
+          console.log(`[DEBUG] Checking file: ${file}, id in file: ${userData && userData.id}`);
+          if (userData && String(userData.id) === String(id)) {
             userToUpdate = userData;
-            userFilePath = path.join(USER_DATA_PATH, file);
+            userFilePath = filePath;
             break;
           }
         }
@@ -2512,6 +2593,7 @@ app.put("/api/users/:id", (req, res) => {
     }
 
     if (!userToUpdate) {
+      console.error(`[ERROR] User with id ${id} not found in USER_DATA_PATH`);
       return res.status(404).json({
         success: false,
         error: "User not found",
@@ -2542,6 +2624,10 @@ app.put("/api/users/:id", (req, res) => {
       }
     }
 
+
+    // Lưu lại username cũ để rename file nếu cần
+    const oldUsername = userToUpdate.username;
+
     // Update user data (preserve existing structure)
     userToUpdate.username = username;
     userToUpdate.email = email;
@@ -2554,13 +2640,16 @@ app.put("/api/users/:id", (req, res) => {
     if (department !== undefined) userToUpdate.department = department;
     if (phone !== undefined) userToUpdate.phone = phone;
 
-    // If username changed, rename file
-    if (username !== userToUpdate.username) {
-      const newFilePath = getUserFilePath(username);
+    // Nếu username thay đổi, đổi tên file từ username cũ sang username mới
+    const oldFilePath = getUserFilePath(oldUsername);
+    const newFilePath = getUserFilePath(username);
+    if (oldUsername !== username) {
       fs.writeFileSync(newFilePath, JSON.stringify(userToUpdate, null, 2));
-      fs.unlinkSync(userFilePath);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
     } else {
-      fs.writeFileSync(userFilePath, JSON.stringify(userToUpdate, null, 2));
+      fs.writeFileSync(oldFilePath, JSON.stringify(userToUpdate, null, 2));
     }
 
     console.log(`✅ User updated: ${username}`);
