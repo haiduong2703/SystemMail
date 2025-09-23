@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Move to Review Bug Fix</title>
+    <style>
+        body { margin: 20px; font-family: Arial, sans-serif; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 8px 12px; }
+    </style>
+</head>
+<body>
+    <h1>Test Move to Review Bug Fix</h1>
+    
+    <div id="status"></div>
+    
+    <div class="test-section">
+        <h3>1. Test Move Single Mail to Review</h3>
+        <p>This will move a test mail to Review with PROCESSED tag</p>
+        <button onclick="testMoveSingleToReview()">Test Move Single Mail</button>
+        <div id="singleResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Move Multiple Mails to Review</h3>
+        <p>This will move multiple test mails to Review with PROCESSED tags</p>
+        <button onclick="testMoveMultipleToReview()">Test Move Multiple Mails</button>
+        <div id="multipleResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Verify Review Mails</h3>
+        <p>Check if moved mails appear in Review with PROCESSED status</p>
+        <button onclick="verifyReviewMails()">Verify Review Mails</button>
+        <div id="verifyResult"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3002';
+
+        async function testMoveSingleToReview() {
+            const resultDiv = document.getElementById('singleResult');
+            resultDiv.innerHTML = '<div class="info">🔄 Testing single mail move...</div>';
+
+            // Create a sample mail data
+            const testMail = {
+                id: `test-single-${Date.now()}`,
+                Subject: "Test Mail for Move to Review - Single",
+                From: "test@example.com", 
+                Date: new Date().toISOString(),
+                Body: "Test mail content",
+                category: "DungHan",
+                status: "mustRep",
+                isRead: false
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/move-to-review`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mailId: testMail.id,
+                        mailData: testMail
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Single mail moved successfully!</div>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    const error = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Failed to move single mail</div>
+                        <p>Error: ${error}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Network error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function verifyReviewMails() {
+            const resultDiv = document.getElementById('verifyResult');
+            resultDiv.innerHTML = '<div class="info">🔄 Checking Review mails...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/mails/ReviewMail`);
+                
+                if (response.ok) {
+                    const reviewMails = await response.json();
+                    
+                    // Filter test mails
+                    const testMails = reviewMails.filter(mail => 
+                        mail.Subject && mail.Subject.includes('Test Mail for Move to Review')
+                    );
+
+                    if (testMails.length > 0) {
+                        resultDiv.innerHTML = `
+                            <div class="success">✅ Found ${testMails.length} test mail(s) in Review!</div>
+                            <h4>Test Mails in Review:</h4>
+                            ${testMails.map(mail => `
+                                <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd;">
+                                    <strong>Subject:</strong> ${mail.Subject}<br>
+                                    <strong>isReplied:</strong> ${mail.isReplied ? '✅ true' : '❌ false'}<br>
+                                    <strong>Category:</strong> ${mail.category}<br>
+                                    <strong>processedDate:</strong> ${mail.processedDate || 'Not set'}<br>
+                                    <strong>Status:</strong> ${mail.isReplied ? 'PROCESSED ✅' : 'Under Review ⏳'}
+                                </div>
+                            `).join('')}
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="info">ℹ️ No test mails found in Review section</div>
+                            <p>Total Review mails: ${reviewMails.length}</p>
+                        `;
+                    }
+                } else {
+                    const error = await response.text();
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Failed to get review mails</div>
+                        <p>Error: ${error}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ Network error: ${error.message}</div>
+                `;
+            }
+        }
+
+        // Check server status on load
+        window.onload = async function() {
+            const statusDiv = document.getElementById('status');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/stats`);
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="success">✅ Backend server is running</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="error">❌ Backend server error</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="error">❌ Cannot connect to backend server</div>';
+            }
+        };
+    </script>
+</body>
+</html>

@@ -433,6 +433,10 @@ const Assignment = () => {
 
   // User management functions
   const handleCreateUser = async () => {
+    console.log("🔧 handleCreateUser called");
+    console.log("🔧 Current userForm state:", userForm);
+    console.log("🔧 editingUser:", editingUser);
+    
     try {
       // Validation
       if (!userForm.username || !userForm.email) {
@@ -463,7 +467,7 @@ const Assignment = () => {
         delete userData.password;
       }
 
-      console.log(`${editingUser ? "Updating" : "Creating"} user:`, userData);
+      console.log(`🔧 ${editingUser ? "Updating" : "Creating"} user with data:`, userData);
 
       const response = await fetch(url, {
         method,
@@ -516,15 +520,21 @@ const Assignment = () => {
   };
 
   const handleEditUser = (user) => {
+    console.log("🔧 handleEditUser called with user:", user);
+    console.log("🔧 User isAdmin:", user.isAdmin, "isActive:", user.isActive);
+    
     setEditingUser(user);
-    setUserForm({
+    const formData = {
       username: user.username,
       email: user.email,
       fullName: user.fullName,
       password: "", // Leave empty for edit mode
       isAdmin: user.isAdmin,
       isActive: user.isActive,
-    });
+    };
+    
+    console.log("🔧 Setting userForm to:", formData);
+    setUserForm(formData);
     setUserModal(true);
   };
 
@@ -1520,9 +1530,10 @@ const Assignment = () => {
                         type={showPassword ? "text" : "password"}
                         id="password"
                         value={userForm.password}
-                        onChange={(e) =>
-                          setUserForm({ ...userForm, password: e.target.value })
-                        }
+                        onChange={(e) => {
+                          console.log("🔧 Password field changed to:", e.target.value);
+                          setUserForm({ ...userForm, password: e.target.value });
+                        }}
                         placeholder={
                           editingUser ? "Enter new password" : "Enter password"
                         }
@@ -1560,12 +1571,13 @@ const Assignment = () => {
                         <Input
                           type="checkbox"
                           checked={userForm.isActive}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            console.log("🔧 isActive checkbox changed to:", e.target.checked);
                             setUserForm({
                               ...userForm,
                               isActive: e.target.checked,
-                            })
-                          }
+                            });
+                          }}
                         />
                         <span className="ml-2">Active User</span>
                       </Label>
@@ -1575,12 +1587,13 @@ const Assignment = () => {
                         <Input
                           type="checkbox"
                           checked={userForm.isAdmin}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            console.log("🔧 isAdmin checkbox changed to:", e.target.checked);
                             setUserForm({
                               ...userForm,
                               isAdmin: e.target.checked,
-                            })
-                          }
+                            });
+                          }}
                         />
                         <span className="ml-2">Administrator</span>
                       </Label>

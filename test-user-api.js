@@ -1,13 +1,69 @@
-/**
- * Test script for User Management API endpoints
- * This script tests all the user management API endpoints
- */
+const fs = require('fs');
+const path = require('path');
 
-// Base URL for API
-const API_BASE = 'http://localhost:3002';
+// Test API call for debugging user not found issue
+async function testUserAPI() {
+    const API_BASE_URL = 'http://localhost:3002';
+    
+    console.log("=== Testing User API ===\n");
+    
+    // First get all users
+    try {
+        console.log("1. Getting all users...");
+        const response = await fetch(`${API_BASE_URL}/api/users`);
+        
+        if (response.ok) {
+            const users = await response.json();
+            console.log(`✅ Found ${users.length} users from API:`);
+            
+            users.forEach((user, index) => {
+                console.log(`   ${index + 1}. ID: ${user.id} | Username: ${user.username} | isAdmin: ${user.isAdmin} | isActive: ${user.isActive}`);
+            });
+            
+            // Test updating each user
+            console.log("\n2. Testing user updates...");
+            for (const user of users) {
+                console.log(`\nTesting update for user: ${user.username} (ID: ${user.id})`);
+                
+                const updateData = {
+                    username: user.username,
+                    email: user.email,
+                    fullName: user.fullName || '',
+                    isAdmin: user.isAdmin,
+                    isActive: user.isActive
+                };
+                
+                try {
+                    const updateResponse = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(updateData)
+                    });
+                    
+                    if (updateResponse.ok) {
+                        const result = await updateResponse.json();
+                        console.log(`   ✅ Update successful for ${user.username}`);
+                    } else {
+                        const error = await updateResponse.text();
+                        console.log(`   ❌ Update failed for ${user.username}:`, error);
+                    }
+                } catch (err) {
+                    console.log(`   ❌ Network error for ${user.username}:`, err.message);
+                }
+            }
+            
+        } else {
+            console.log("❌ Failed to get users:", await response.text());
+        }
+    } catch (error) {
+        console.log("❌ Network error:", error.message);
+        console.log("💡 Make sure backend server is running on port 3002");
+    }
+}
 
-// Test data
-const testUser = {
+testUserAPI();
   username: 'test.user.api',
   email: 'test.api@company.com',
   fullName: 'Test API User',

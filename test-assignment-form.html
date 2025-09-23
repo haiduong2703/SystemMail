@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Assignment Form</title>
+    <style>
+        body { margin: 20px; font-family: Arial, sans-serif; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="email"], input[type="password"] { 
+            width: 300px; padding: 8px; border: 1px solid #ccc; 
+        }
+        input[type="checkbox"] { margin-right: 8px; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+        .user-info { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Test Assignment Form Bug</h1>
+    
+    <div id="status"></div>
+    
+    <div class="form-group">
+        <label>Select User to Edit:</label>
+        <select id="userSelect" onchange="loadUserForEdit()">
+            <option value="">Select a user...</option>
+        </select>
+    </div>
+
+    <div class="user-info" id="selectedUserInfo" style="display: none;">
+        <h3>Selected User Info:</h3>
+        <div id="userInfoDisplay"></div>
+    </div>
+
+    <form id="userForm">
+        <div class="form-group">
+            <label for="username">Username *</label>
+            <input type="text" id="username" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="fullName">Full Name</label>
+            <input type="text" id="fullName">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password (leave blank to keep current)</label>
+            <input type="password" id="password">
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="isActive"> Active User
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="isAdmin"> Administrator
+            </label>
+        </div>
+        
+        <button type="button" onclick="updateUser()">Update User</button>
+        <button type="button" onclick="testCheckboxes()">Test Checkboxes</button>
+    </form>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3002';
+        let users = [];
+        let selectedUser = null;
+
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users`);
+                users = await response.json();
+                
+                const select = document.getElementById('userSelect');
+                select.innerHTML = '<option value="">Select a user...</option>';
+                
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.username} (${user.email})`;
+                    select.appendChild(option);
+                });
+                
+                document.getElementById('status').innerHTML = `<div class="success">✅ Loaded ${users.length} users</div>`;
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<div class="error">❌ Error loading users: ${error.message}</div>`;
+            }
+        }
+
+        function loadUserForEdit() {
+            const selectElement = document.getElementById('userSelect');
+            const userId = selectElement.value;
+            
+            if (!userId) {
+                document.getElementById('selectedUserInfo').style.display = 'none';
+                clearForm();
+                return;
+            }
+            
+            selectedUser = users.find(u => u.id == userId);
+            if (!selectedUser) return;
+            
+            // Display user info
+            document.getElementById('userInfoDisplay').innerHTML = `
+                <strong>Original Data:</strong><br>
+                ID: ${selectedUser.id}<br>
+                Username: ${selectedUser.username}<br>
+                Email: ${selectedUser.email}<br>
+                Full Name: ${selectedUser.fullName || 'Not set'}<br>
+                Role: ${selectedUser.role || 'Not set'}<br>
+                isAdmin: ${selectedUser.isAdmin}<br>
+                isActive: ${selectedUser.isActive}<br>
+                Created: ${selectedUser.createdAt || 'Not set'}
+            `;
+            document.getElementById('selectedUserInfo').style.display = 'block';
+            
+            // Fill form
+            document.getElementById('username').value = selectedUser.username || '';
+            document.getElementById('email').value = selectedUser.email || '';
+            document.getElementById('fullName').value = selectedUser.fullName || '';
+            document.getElementById('password').value = '';
+            document.getElementById('isActive').checked = selectedUser.isActive === true;
+            document.getElementById('isAdmin').checked = selectedUser.isAdmin === true;
+            
+            console.log('Form filled with:', {
+                username: selectedUser.username,
+                email: selectedUser.email,
+                fullName: selectedUser.fullName,
+                isActive: selectedUser.isActive,
+                isAdmin: selectedUser.isAdmin
+            });
+        }
+
+        function clearForm() {
+            document.getElementById('username').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('fullName').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('isActive').checked = true;
+            document.getElementById('isAdmin').checked = false;
+            selectedUser = null;
+        }
+
+        async function updateUser() {
+            if (!selectedUser) {
+                alert('Please select a user to edit first');
+                return;
+            }
+
+            const formData = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                fullName: document.getElementById('fullName').value,
+                password: document.getElementById('password').value,
+                isAdmin: document.getElementById('isAdmin').checked,
+                isActive: document.getElementById('isActive').checked
+            };
+
+            // Don't send empty password
+            if (!formData.password) {
+                delete formData.password;
+            }
+
+            console.log('Sending update data:', formData);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/users/${selectedUser.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = `<div class="success">✅ User updated successfully!</div>`;
+                    await loadUsers(); // Reload users
+                    
+                    // Re-select the same user to see changes
+                    document.getElementById('userSelect').value = selectedUser.id;
+                    loadUserForEdit();
+                } else {
+                    document.getElementById('status').innerHTML = `<div class="error">❌ Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        function testCheckboxes() {
+            const isActive = document.getElementById('isActive').checked;
+            const isAdmin = document.getElementById('isAdmin').checked;
+            
+            alert(`Checkbox values:\nActive: ${isActive}\nAdmin: ${isAdmin}`);
+        }
+
+        // Load users on page load
+        loadUsers();
+    </script>
+</body>
+</html>

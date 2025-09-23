@@ -60,6 +60,7 @@ import PaginationControls from "components/PaginationControls/PaginationControls
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
 import { API_BASE_URL } from "constants/api";
+import { isMailReplied } from "utils/replyStatusUtils";
 
 const ValidMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -463,9 +464,9 @@ const ValidMails = () => {
 
       // Reply status filter
       let matchesReplyStatus = true;
-      if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
+      if (replyStatusFilter === "replied") matchesReplyStatus = isMailReplied(mail);
       if (replyStatusFilter === "not_replied")
-        matchesReplyStatus = !mail.isReplied;
+        matchesReplyStatus = !isMailReplied(mail);
 
       // Note: Removed automatic expiry filter - mails stay in valid section until manually moved
       // const withinDeadline = !isMailExpired(mail.Date);
@@ -537,8 +538,8 @@ const ValidMails = () => {
         replyFilter === null
           ? true
           : replyFilter === "replied"
-          ? mail.isReplied
-          : !mail.isReplied;
+          ? isMailReplied(mail)
+          : !isMailReplied(mail);
       return matchesSearch && matchesDate && matchesReply;
     }).length;
   };

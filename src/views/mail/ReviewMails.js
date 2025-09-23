@@ -59,6 +59,7 @@ import { useGroupContext } from "contexts/GroupContext.js";
 import AssignModal from "components/AssignModal.js";
 import CompactClock from "components/RealtimeClock/CompactClock.js";
 import { API_BASE_URL } from "constants/api.js";
+import { isMailReplied } from "utils/replyStatusUtils";
 
 const ReviewMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,6 +131,11 @@ const ReviewMails = () => {
 
   const handleAssignSuccess = (updatedMail) => {
     console.log("Mail assigned successfully:", updatedMail);
+    
+    // Refresh mail data to show updated assignment
+    if (refreshMails) {
+      refreshMails();
+    }
   };
 
   // Handle move mail back to original location
@@ -254,6 +260,60 @@ const ReviewMails = () => {
     return text.substring(0, maxLength) + "...";
   };
 
+  // Calculate time since Date Sent for Review Mails
+  const getTimeSinceSent = (dateArray) => {
+    if (!dateArray || !Array.isArray(dateArray) || dateArray.length === 0) {
+      return "N/A";
+    }
+
+    try {
+      const [date, time] = dateArray;
+      let mailDate;
+
+      if (time) {
+        // If time is provided, combine date and time
+        mailDate = new Date(`${date}T${time}`);
+      } else {
+        // If only date is provided, use date
+        mailDate = new Date(date);
+      }
+
+      const currentDate = new Date();
+
+      // Check if date is valid
+      if (isNaN(mailDate.getTime())) {
+        return "N/A";
+      }
+
+      // Calculate time difference in hours
+      const hoursDifference = Math.floor(
+        (currentDate - mailDate) / (1000 * 60 * 60)
+      );
+
+      if (hoursDifference < 24) {
+        // Less than 24 hours - show hours
+        if (hoursDifference <= 0) {
+          return "Just now";
+        } else if (hoursDifference === 1) {
+          return "1 hour ago";
+        } else {
+          return `${hoursDifference} hours ago`;
+        }
+      } else {
+        // 24 hours or more - show days
+        const daysDifference = Math.floor(hoursDifference / 24);
+        if (daysDifference === 1) {
+          return "1 day ago";
+        } else {
+          return `${daysDifference} days ago`;
+        }
+      }
+    } catch (error) {
+      console.error("Error calculating time since sent:", error);
+      return "N/A";
+    }
+  };
+
   // Toggle Modal
   const toggleModal = () => {
     setModalOpen(!modalOpen);
@@ -284,18 +344,18 @@ const ReviewMails = () => {
 
       // Reply status filter
       let matchesReplyStatus = true;
-      if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
+      if (replyStatusFilter === "replied") matchesReplyStatus = isMailReplied(mail);
       if (replyStatusFilter === "not_replied")
-        matchesReplyStatus = !mail.isReplied;
+        matchesReplyStatus = !isMailReplied(mail);
 
       // Review status filter
       let matchesReviewStatus = true;
       if (reviewStatusFilter === "under_review") {
         // Mails that are under review (not replied yet)
-        matchesReviewStatus = !mail.isReplied;
+        matchesReviewStatus = !isMailReplied(mail);
       } else if (reviewStatusFilter === "processed") {
         // Mails that are processed (replied)
-        matchesReviewStatus = mail.isReplied;
+        matchesReviewStatus = isMailReplied(mail);
       }
 
       return (
@@ -373,9 +433,9 @@ const ReviewMails = () => {
     if (!mailToChangeStatus) return;
 
     try {
-      // Call API to update mail status
+      // Call API to update ReviewMail status
       const response = await fetch(
-        `${API_BASE_URL}/api/mails/${mailToChangeStatus.id}/status`,
+        `${API_BASE_URL}/api/review-mails/${mailToChangeStatus.id}/status`,
         {
           method: "PUT",
           headers: {
@@ -518,7 +578,7 @@ const ReviewMails = () => {
                         Under Review (
                         {
                           reviewMails.filter((mail) => {
-                            return !mail.isReplied;
+                            return !isMailReplied(mail);
                           }).length
                         }
                         )
@@ -535,7 +595,7 @@ const ReviewMails = () => {
                         Processed (
                         {
                           reviewMails.filter((mail) => {
-                            return mail.isReplied;
+                            return isMailReplied(mail);
                           }).length
                         }
                         )
@@ -587,6 +647,7 @@ const ReviewMails = () => {
                 getTypeColor={getTypeColor}
                 getGroupInfo={getGroupInfo}
                 formatDate={formatDate}
+                getTimeSinceSent={getTimeSinceSent}
                 truncateText={truncateText}
                 handleViewDetails={handleViewDetails}
                 handleAssignMail={handleAssignMail}
@@ -649,21 +710,21 @@ const ReviewMails = () => {
               </p>
               <p>
                 <strong>Current Status:</strong>{" "}
-                {mailToChangeStatus.isReplied ? "Processed" : "Under Review"}
+                {isMailReplied(mailToChangeStatus) ? "Processed" : "Under Review"}
               </p>
               <p>Select new status:</p>
               <div className="d-flex gap-2">
                 <Button
                   color="warning"
                   onClick={() => handleStatusChange("under_review")}
-                  disabled={!mailToChangeStatus.isReplied}
+                  disabled={!isMailReplied(mailToChangeStatus)}
                 >
                   Under Review
                 </Button>
                 <Button
                   color="success"
                   onClick={() => handleStatusChange("processed")}
-                  disabled={mailToChangeStatus.isReplied}
+                  disabled={isMailReplied(mailToChangeStatus)}
                 >
                   Processed
                 </Button>

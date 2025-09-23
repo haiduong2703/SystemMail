@@ -58,6 +58,7 @@ import { API_BASE_URL } from "constants/api.js";
 import { useMarkMailRead } from "hooks/useMarkMailRead.js";
 import CompactHeader from "components/Headers/CompactHeader.js";
 import { useMailContext } from "contexts/MailContext.js";
+import { isMailReplied } from "utils/replyStatusUtils";
 import { useGroupContext } from "contexts/GroupContext.js";
 import AssignModal from "components/AssignModal.js";
 import CompactClock from "components/RealtimeClock/CompactClock.js";
@@ -133,6 +134,11 @@ const ExpiredMails = () => {
 
   const handleAssignSuccess = (updatedMail) => {
     console.log("Mail assigned successfully:", updatedMail);
+    
+    // Refresh mail data to show updated assignment
+    if (refreshMails) {
+      refreshMails();
+    }
   };
 
   // Handle move mail to review
@@ -270,9 +276,9 @@ const ExpiredMails = () => {
 
       // Reply status filter
       let matchesReplyStatus = true;
-      if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
+      if (replyStatusFilter === "replied") matchesReplyStatus = isMailReplied(mail);
       if (replyStatusFilter === "not_replied")
-        matchesReplyStatus = !mail.isReplied;
+        matchesReplyStatus = !isMailReplied(mail);
 
       return matchesSearch && matchesDate && matchesReplyStatus;
     })

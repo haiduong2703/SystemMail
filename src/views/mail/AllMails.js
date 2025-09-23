@@ -58,6 +58,7 @@ import PaginationControls from "components/PaginationControls/PaginationControls
 import MailDetailsModal from "components/MailDetailsModal/MailDetailsModal.js";
 import MailTable from "components/MailTable/MailTable.js";
 import CompactClock from "components/RealtimeClock/CompactClock.js";
+import { isMailReplied } from "utils/replyStatusUtils";
 import { API_BASE_URL } from "constants/api.js";
 
 const AllMails = () => {
@@ -106,6 +107,11 @@ const AllMails = () => {
 
   const handleAssignSuccess = (updatedMail) => {
     console.log('Mail assigned successfully:', updatedMail);
+    
+    // Refresh mail data to show updated assignment
+    if (refreshMails) {
+      refreshMails();
+    }
   };
 
   // Handle move mail to review
@@ -203,8 +209,8 @@ const AllMails = () => {
 
     // Reply status filter
     let matchesReplyStatus = true;
-    if (replyStatusFilter === "replied") matchesReplyStatus = mail.isReplied;
-    if (replyStatusFilter === "not_replied") matchesReplyStatus = !mail.isReplied;
+    if (replyStatusFilter === "replied") matchesReplyStatus = isMailReplied(mail);
+    if (replyStatusFilter === "not_replied") matchesReplyStatus = !isMailReplied(mail);
 
     // Debug log for first mail to see filtering logic
     if (mail === mails[0]) {
@@ -215,7 +221,7 @@ const AllMails = () => {
         matchesDate,
         replyStatusFilter,
         matchesReplyStatus,
-        isReplied: mail.isReplied,
+        isReplied: isMailReplied(mail),
         mailDate: mail.Date
       });
     }
@@ -342,7 +348,7 @@ const AllMails = () => {
                       <i className="fas fa-sync-alt mr-1" />
                       Refresh Groups
                     </Button> */}
-                    <Button
+                    {/* <Button
                       color="warning"
                       size="sm"
                       onClick={handleMoveSelectedToReview}
@@ -351,7 +357,7 @@ const AllMails = () => {
                     >
                       <i className="fas fa-arrow-down mr-1" />
                       Move Selected ({selectedMails.length})
-                    </Button>
+                    </Button> */}
                   </div>
                   <div className="col-lg-6 col-5">
                     <InputGroup>

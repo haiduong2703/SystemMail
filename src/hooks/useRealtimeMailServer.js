@@ -86,6 +86,21 @@ export const useRealtimeMailServer = () => {
       console.log("📊 Auto-reload disabled for performance");
     });
 
+    // Listen for individual mail creation events
+    socket.on("mailCreated", (data) => {
+      console.log("📧 New mail created:", data);
+      // Trigger immediate UI update
+      window.dispatchEvent(
+        new CustomEvent("mailDataReload", {
+          detail: { 
+            manual: true, 
+            reason: "newMailCreated",
+            mailData: data.mail 
+          },
+        })
+      );
+    });
+
     socket.on("reloadStatusChanged", (data) => {
       console.log("🔄 Reload status changed:", data);
       setReloadStatus(data.shouldReload);

@@ -35,7 +35,7 @@ const crypto = require("crypto");
 // Đường dẫn đến thư mục mail data
 const MAIL_DATA_PATH = "C:\\classifyMail";
 const ASSIGNMENT_DATA_PATH = "C:\\classifyMail\\AssignmentData";
-const USER_DATA_PATH = "C:\\classifyMail\\UserData";
+const USER_DATA_PATH = "C:\\classifyMail\\userData";
 const RELOAD_STATUS_FILE = path.join(MAIL_DATA_PATH, "DungHan/new.json");
 
 // Ensure necessary directories exist on startup
@@ -123,6 +123,39 @@ const verifyPassword = (password, salt, hash) => {
   }
 };
 
+// Helper function to determine reply status from folder structure
+const getReplyStatusFromFolder = (filePath, category, status) => {
+  // Determine reply status based on folder structure
+  if (category === "DungHan") {
+    return status === "rep"; // DungHan/rep = replied, DungHan/mustRep = not replied
+  } else if (category === "QuaHan") {
+    return status === "daRep"; // QuaHan/daRep = replied, QuaHan/chuaRep = not replied
+  } else if (category === "ReviewMail") {
+    return status === "processed"; // ReviewMail/processed = replied, ReviewMail/pending = not replied
+  }
+  
+  // Fallback: analyze filePath if category/status not available
+  if (filePath) {
+    return filePath.includes("/rep/") || filePath.includes("\\rep\\") || 
+           filePath.includes("/daRep/") || filePath.includes("\\daRep\\") ||
+           filePath.includes("/processed/") || filePath.includes("\\processed\\");
+  }
+  
+  return false; // Default to not replied
+};
+
+// Helper function to get folder status from reply status
+const getFolderStatusFromReply = (category, isReplied) => {
+  if (category === "DungHan") {
+    return isReplied ? "rep" : "mustRep";
+  } else if (category === "QuaHan") {
+    return isReplied ? "daRep" : "chuaRep";
+  } else if (category === "ReviewMail") {
+    return isReplied ? "processed" : "pending";
+  }
+  return "mustRep"; // Default fallback
+};
+
 // User management utilities
 const createUserDirectory = () => {
   if (!fs.existsSync(USER_DATA_PATH)) {
@@ -136,16 +169,31 @@ const getUserFilePath = (username) => {
 };
 
 const userExists = (username) => {
-  const userFilePath = getUserFilePath(username);
-  return fs.existsSync(userFilePath);
+  try {
+    createUserDirectory();
+    if (fs.existsSync(USER_DATA_PATH)) {
+      const userFiles = fs.readdirSync(USER_DATA_PATH);
+      for (const file of userFiles) {
+        if (file.endsWith(".json")) {
+          const userData = readJsonFile(path.join(USER_DATA_PATH, file));
+          if (userData && userData.username === username) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Error checking user existence:", error);
+    return false;
+  }
 };
 
 const saveUser = (userData) => {
   createUserDirectory();
-  const userFilePath = getUserFilePath(userData.username);
-
+  
   const userRecord = {
-    id: Date.now().toString(),
+    id: userData.id || Date.now().toString(),
     username: userData.username,
     email: userData.email,
     fullName: userData.fullName,
@@ -157,6 +205,8 @@ const saveUser = (userData) => {
     isActive: true,
   };
 
+  const userFilePath = path.join(USER_DATA_PATH, `${userRecord.id}.json`);
+  
   try {
     fs.writeFileSync(userFilePath, JSON.stringify(userRecord, null, 2));
     console.log(`✅ User saved: ${userData.username}`);
@@ -168,8 +218,24 @@ const saveUser = (userData) => {
 };
 
 const getUser = (username) => {
-  const userFilePath = getUserFilePath(username);
-  return readJsonFile(userFilePath);
+  try {
+    createUserDirectory();
+    if (fs.existsSync(USER_DATA_PATH)) {
+      const userFiles = fs.readdirSync(USER_DATA_PATH);
+      for (const file of userFiles) {
+        if (file.endsWith(".json")) {
+          const userData = readJsonFile(path.join(USER_DATA_PATH, file));
+          if (userData && userData.username === username) {
+            return userData;
+          }
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting user:", error);
+    return null;
+  }
 };
 
 const writeJsonFile = (filePath, data) => {
@@ -349,40 +415,115 @@ io.on("connection", (socket) => {
   });
 });
 
-// Function to enrich mail data with assignment information
-const enrichMailWithAssignmentInfo = (mailData) => {
-  if (!mailData.assignedTo) {
+// Function to auto-assign leader based on sender's group
+const autoAssignLeaderBySenderGroup = (mailData, filePath = null) => {
+  // Skip if already assigned
+  if (mailData.assignedTo) {
     return mailData;
   }
 
-  const enrichedMail = { ...mailData };
+  try {
+    const groupsPath = path.join(ASSIGNMENT_DATA_PATH, "Groups");
+    
+    if (!fs.existsSync(groupsPath)) {
+      return mailData;
+    }
+
+    const groupFiles = fs.readdirSync(groupsPath).filter((f) => f.endsWith(".json"));
+    
+    // Find group that contains sender email
+    for (const file of groupFiles) {
+      const groupData = readJsonFile(path.join(groupsPath, file));
+      if (!groupData || !groupData.members) continue;
+      
+      // Check if sender email is in this group's members
+      const senderEmail = mailData.From || mailData.EncryptedFrom;
+      const isInGroup = groupData.members.some(member => 
+        member.toLowerCase().trim() === senderEmail.toLowerCase().trim()
+      );
+      
+      if (isInGroup && groupData.pic && groupData.picEmail) {
+        console.log(`🎯 Auto-assigning mail from ${senderEmail} to group leader: ${groupData.pic} (${groupData.picEmail})`);
+        
+        const updatedMailData = {
+          ...mailData,
+          assignedTo: {
+            type: "pic",
+            picId: path.parse(file).name, // Use group ID as PIC ID for now
+            picName: groupData.pic,
+            picEmail: groupData.picEmail,
+            assignedAt: new Date().toISOString(),
+            assignedBy: "system_auto", // Mark as system auto-assignment
+            groupId: path.parse(file).name,
+            groupName: groupData.name
+          }
+        };
+
+        // Save updated mail data back to file if filePath provided
+        if (filePath) {
+          try {
+            const success = writeJsonFile(filePath, updatedMailData);
+            if (success) {
+              console.log(`💾 Saved auto-assigned mail data to ${filePath}`);
+            } else {
+              console.error(`❌ Failed to save auto-assigned mail data to ${filePath}`);
+            }
+          } catch (saveError) {
+            console.error("❌ Error saving auto-assigned mail:", saveError);
+          }
+        }
+        
+        return updatedMailData;
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error in auto-assign leader:", error);
+  }
+
+  return mailData;
+};
+
+// Function to enrich mail data with assignment information
+const enrichMailWithAssignmentInfo = (mailData, filePath = null) => {
+  // First try auto-assign if not already assigned
+  let enrichedMail = autoAssignLeaderBySenderGroup(mailData, filePath);
+  
+  if (!enrichedMail.assignedTo) {
+    return enrichedMail;
+  }
+
+  const enrichedMailCopy = { ...enrichedMail };
 
   try {
-    // If assigned to PIC, get PIC name
-    if (mailData.assignedTo.type === "pic" && mailData.assignedTo.picId) {
-      const picsPath = path.join(ASSIGNMENT_DATA_PATH, "PIC");
-      const picFileName = `${mailData.assignedTo.picId}.json`;
-      const picFilePath = path.join(picsPath, picFileName);
+    // If assigned to PIC, get PIC name (may already be populated by auto-assign)
+    if (enrichedMail.assignedTo.type === "pic" && enrichedMail.assignedTo.picId) {
+      if (!enrichedMail.assignedTo.picName) {
+        const picsPath = path.join(ASSIGNMENT_DATA_PATH, "PIC");
+        const picFileName = `${enrichedMail.assignedTo.picId}.json`;
+        const picFilePath = path.join(picsPath, picFileName);
 
-      if (fs.existsSync(picFilePath)) {
-        const picData = readJsonFile(picFilePath);
-        if (picData) {
-          enrichedMail.assignedTo.picName = picData.name;
-          enrichedMail.assignedTo.picEmail = picData.email;
+        if (fs.existsSync(picFilePath)) {
+          const picData = readJsonFile(picFilePath);
+          if (picData) {
+            enrichedMailCopy.assignedTo.picName = picData.name;
+            enrichedMailCopy.assignedTo.picEmail = picData.email;
+          }
         }
       }
     }
 
-    // If assigned to Group, get Group name
-    if (mailData.assignedTo.type === "group" && mailData.assignedTo.groupId) {
-      const groupsPath = path.join(ASSIGNMENT_DATA_PATH, "Groups");
-      const groupFileName = `${mailData.assignedTo.groupId}.json`;
-      const groupFilePath = path.join(groupsPath, groupFileName);
+    // If assigned to Group, get Group name (may already be populated by auto-assign)
+    if (enrichedMail.assignedTo.type === "group" && enrichedMail.assignedTo.groupId) {
+      if (!enrichedMail.assignedTo.groupName) {
+        const groupsPath = path.join(ASSIGNMENT_DATA_PATH, "Groups");
+        const groupFileName = `${enrichedMail.assignedTo.groupId}.json`;
+        const groupFilePath = path.join(groupsPath, groupFileName);
 
-      if (fs.existsSync(groupFilePath)) {
-        const groupData = readJsonFile(groupFilePath);
-        if (groupData) {
-          enrichedMail.assignedTo.groupName = groupData.name;
+        if (fs.existsSync(groupFilePath)) {
+          const groupData = readJsonFile(groupFilePath);
+          if (groupData) {
+            enrichedMailCopy.assignedTo.groupName = groupData.name;
+          }
         }
       }
     }
@@ -390,7 +531,7 @@ const enrichMailWithAssignmentInfo = (mailData) => {
     console.error("Error enriching mail with assignment info:", error);
   }
 
-  return enrichedMail;
+  return enrichedMailCopy;
 };
 
 // Function to load all mails from file system
@@ -406,18 +547,19 @@ const loadAllMails = () => {
         .readdirSync(dungHanMustRepPath)
         .filter((f) => f.endsWith(".json"));
       files.forEach((file) => {
-        const mailData = readJsonFile(path.join(dungHanMustRepPath, file));
+        const filePath = path.join(dungHanMustRepPath, file);
+        const mailData = readJsonFile(filePath);
         if (mailData) {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
-          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           allMails.push({
             id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
-            filePath: path.join(dungHanMustRepPath, file),
+            filePath: filePath,
             category: "DungHan",
             status: "mustRep",
             isExpired: false,
-            isReplied: false,
+            isReplied: getReplyStatusFromFolder(filePath, "DungHan", "mustRep"),
             ...enrichedMail,
           });
         }
@@ -431,18 +573,19 @@ const loadAllMails = () => {
         .readdirSync(dungHanRepPath)
         .filter((f) => f.endsWith(".json"));
       files.forEach((file) => {
-        const mailData = readJsonFile(path.join(dungHanRepPath, file));
+        const filePath = path.join(dungHanRepPath, file);
+        const mailData = readJsonFile(filePath);
         if (mailData) {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
-          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           allMails.push({
             id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
-            filePath: path.join(dungHanRepPath, file),
+            filePath: filePath,
             category: "DungHan",
             status: "rep",
             isExpired: false,
-            isReplied: true,
+            isReplied: getReplyStatusFromFolder(filePath, "DungHan", "rep"),
             ...enrichedMail,
           });
         }
@@ -456,18 +599,19 @@ const loadAllMails = () => {
         .readdirSync(quaHanChuaRepPath)
         .filter((f) => f.endsWith(".json"));
       files.forEach((file) => {
-        const mailData = readJsonFile(path.join(quaHanChuaRepPath, file));
+        const filePath = path.join(quaHanChuaRepPath, file);
+        const mailData = readJsonFile(filePath);
         if (mailData) {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
-          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           allMails.push({
             id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
-            filePath: path.join(quaHanChuaRepPath, file),
+            filePath: filePath,
             category: "QuaHan",
             status: "chuaRep",
             isExpired: true,
-            isReplied: false,
+            isReplied: getReplyStatusFromFolder(filePath, "QuaHan", "chuaRep"),
             ...enrichedMail,
           });
         }
@@ -481,38 +625,37 @@ const loadAllMails = () => {
         .readdirSync(quaHanDaRepPath)
         .filter((f) => f.endsWith(".json"));
       files.forEach((file) => {
-        const mailData = readJsonFile(path.join(quaHanDaRepPath, file));
+        const filePath = path.join(quaHanDaRepPath, file);
+        const mailData = readJsonFile(filePath);
         if (mailData) {
           const decryptedMail = decryptMailFrom(mailData); // Decrypt here
-          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           allMails.push({
             id: enrichedMail.id || path.parse(file).name || fileId++,
             fileName: file,
-            filePath: path.join(quaHanDaRepPath, file),
+            filePath: filePath,
             category: "QuaHan",
             status: "daRep",
             isExpired: true,
-            isReplied: true,
+            isReplied: getReplyStatusFromFolder(filePath, "QuaHan", "daRep"),
             ...enrichedMail,
           });
         }
       });
     }
 
-    // Load ReviewMail
-    const reviewMailPath = path.join(MAIL_DATA_PATH, "ReviewMail");
-    if (fs.existsSync(reviewMailPath)) {
+    // Load ReviewMail - pending (under review)
+    const reviewMailPendingPath = path.join(MAIL_DATA_PATH, "ReviewMail/pending");
+    if (fs.existsSync(reviewMailPendingPath)) {
       const files = fs
-        .readdirSync(reviewMailPath)
+        .readdirSync(reviewMailPendingPath)
         .filter((f) => f.endsWith(".json"));
       files.forEach((file) => {
-        const filePath = path.join(reviewMailPath, file);
+        const filePath = path.join(reviewMailPendingPath, file);
         const mailData = readJsonFile(filePath);
         if (mailData) {
-          const decryptedMail = decryptMailFrom(mailData); // Decrypt here
-          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail);
-
-          // Use original ID from mail data, or filename without extension, or auto-increment
+          const decryptedMail = decryptMailFrom(mailData);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           const mailId = mailData.id || enrichedMail.id || path.parse(file).name || fileId++;
 
           allMails.push({
@@ -520,13 +663,94 @@ const loadAllMails = () => {
             fileName: file,
             filePath: filePath,
             category: "ReviewMail",
-            status: "review",
+            status: "pending",
             isExpired: false,
-            isReplied: mailData.isReplied || false,
+            isReplied: getReplyStatusFromFolder(filePath, "ReviewMail", "pending"),
             ...enrichedMail,
           });
 
-          console.log(`[Debug] Loaded ReviewMail: id=${mailId}, file=${file}, path=${filePath}`);
+          console.log(`[Debug] Loaded ReviewMail/pending: id=${mailId}, file=${file}`);
+        }
+      });
+    }
+
+    // Load ReviewMail - processed (completed review)
+    const reviewMailProcessedPath = path.join(MAIL_DATA_PATH, "ReviewMail/processed");
+    if (fs.existsSync(reviewMailProcessedPath)) {
+      const files = fs
+        .readdirSync(reviewMailProcessedPath)
+        .filter((f) => f.endsWith(".json"));
+      files.forEach((file) => {
+        const filePath = path.join(reviewMailProcessedPath, file);
+        const mailData = readJsonFile(filePath);
+        if (mailData) {
+          const decryptedMail = decryptMailFrom(mailData);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
+          const mailId = mailData.id || enrichedMail.id || path.parse(file).name || fileId++;
+
+          allMails.push({
+            id: mailId,
+            fileName: file,
+            filePath: filePath,
+            category: "ReviewMail",
+            status: "processed",
+            isExpired: false,
+            isReplied: getReplyStatusFromFolder(filePath, "ReviewMail", "processed"),
+            ...enrichedMail,
+          });
+
+          console.log(`[Debug] Loaded ReviewMail/processed: id=${mailId}, file=${file}`);
+        }
+      });
+    }
+
+    // LEGACY: Load old ReviewMail files (for backwards compatibility)
+    const reviewMailPath = path.join(MAIL_DATA_PATH, "ReviewMail");
+    if (fs.existsSync(reviewMailPath)) {
+      const files = fs
+        .readdirSync(reviewMailPath)
+        .filter((f) => f.endsWith(".json") && !fs.statSync(path.join(reviewMailPath, f)).isDirectory());
+      
+      if (files.length > 0) {
+        console.log(`⚠️ Found ${files.length} legacy ReviewMail files, auto-migrating to folder structure...`);
+      }
+      
+      files.forEach((file) => {
+        const filePath = path.join(reviewMailPath, file);
+        const mailData = readJsonFile(filePath);
+        if (mailData) {
+          const decryptedMail = decryptMailFrom(mailData);
+          const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
+          const mailId = mailData.id || enrichedMail.id || path.parse(file).name || fileId++;
+
+          // Determine target subfolder based on existing isReplied field
+          const isReplied = mailData.isReplied !== undefined ? mailData.isReplied : false;
+          const targetStatus = isReplied ? "processed" : "pending";
+          const targetFolderPath = path.join(MAIL_DATA_PATH, "ReviewMail", targetStatus);
+          const targetFilePath = path.join(targetFolderPath, file);
+
+          // Create target folder if it doesn't exist
+          if (!fs.existsSync(targetFolderPath)) {
+            fs.mkdirSync(targetFolderPath, { recursive: true });
+            console.log(`📁 Created directory: ${targetFolderPath}`);
+          }
+
+          // Move file to appropriate subfolder
+          if (writeJsonFile(targetFilePath, mailData)) {
+            fs.unlinkSync(filePath); // Remove old file
+            console.log(`📦 Migrated legacy file: ${file} → ${targetStatus}`);
+
+            allMails.push({
+              id: mailId,
+              fileName: file,
+              filePath: targetFilePath,
+              category: "ReviewMail",
+              status: targetStatus,
+              isExpired: false,
+              isReplied: getReplyStatusFromFolder(targetFilePath, "ReviewMail", targetStatus),
+              ...enrichedMail,
+            });
+          }
         }
       });
     }
@@ -627,13 +851,41 @@ app.put("/api/mails/:id/status", (req, res) => {
       });
     }
 
-    // Update isReplied status
+    // Update reply status by moving file to appropriate folder
+    const currentCategory = mail.category === "ReviewMail" ? 
+      (mail.originalCategory || "DungHan") : mail.category;
+    const newStatus = getFolderStatusFromReply(currentCategory, Boolean(isReplied));
+    
+    // Determine source and destination paths
+    const oldFilePath = mail.filePath;
+    const fileName = mail.fileName;
+    const newFolderPath = path.join(MAIL_DATA_PATH, currentCategory, newStatus);
+    const newFilePath = path.join(newFolderPath, fileName);
+    
+    console.log(`📁 Moving file from ${oldFilePath} to ${newFilePath}`);
+    
+    // Ensure destination folder exists
+    if (!fs.existsSync(newFolderPath)) {
+      fs.mkdirSync(newFolderPath, { recursive: true });
+      console.log(`📁 Created directory: ${newFolderPath}`);
+    }
+    
+    // Update mail data with new status and path
     mailData.isReplied = Boolean(isReplied);
-
-    // Write back to file
-    if (writeJsonFile(mail.filePath, mailData)) {
+    mailData.status = newStatus;
+    mailData.category = currentCategory;
+    mailData.filePath = newFilePath;
+    
+    // Write to new location
+    if (writeJsonFile(newFilePath, mailData)) {
+      // Remove from old location if different
+      if (oldFilePath !== newFilePath && fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+        console.log(`🗑️ Removed old file: ${oldFilePath}`);
+      }
+      
       console.log(
-        `✅ Updated mail status: ${mail.Subject} -> isReplied: ${isReplied}`
+        `✅ Updated mail status and moved file: ${mail.Subject} -> isReplied: ${isReplied}, moved to ${newStatus} folder`
       );
 
       // Broadcast update to clients
@@ -645,8 +897,11 @@ app.put("/api/mails/:id/status", (req, res) => {
 
       res.json({
         success: true,
-        message: "Mail status updated successfully",
+        message: "Mail status updated and moved successfully",
         isReplied: Boolean(isReplied),
+        newStatus: newStatus,
+        newFilePath: newFilePath,
+        category: currentCategory,
       });
     } else {
       res.status(500).json({
@@ -699,7 +954,7 @@ app.post("/api/simulate-new-mail", (req, res) => {
   const fileName = `${mailId}.json`;
   const filePath = path.join(MAIL_DATA_PATH, "DungHan/mustRep", fileName);
 
-  const mailData = {
+  let mailData = {
     Subject: subject,
     From: from,
     Type: type,
@@ -712,11 +967,31 @@ app.post("/api/simulate-new-mail", (req, res) => {
     isRead: false, // Thêm trạng thái đã đọc
   };
 
+  // Auto-assign leader based on sender's group BEFORE writing file
+  console.log(`🎯 Auto-assigning leader for new mail from: ${from}`);
+  mailData = autoAssignLeaderBySenderGroup(mailData, null); // Don't save here, will save below
+
   if (writeJsonFile(filePath, mailData)) {
     console.log(`📧 Simulated new mail created: ${fileName}`);
+    
+    if (mailData.assignedTo) {
+      console.log(`✅ Mail auto-assigned to: ${mailData.assignedTo.picName} (${mailData.assignedTo.picEmail})`);
+    } else {
+      console.log(`ℹ️ No auto-assignment found for sender: ${from}`);
+    }
 
-    // Trigger check for new mails
-    setTimeout(checkForNewMails, 1000);
+    // Immediately trigger check for new mails and broadcast to clients
+    setTimeout(() => {
+      checkForNewMails();
+      // Also broadcast specific new mail event for immediate UI update
+      broadcastToClients("mailCreated", {
+        mail: mailData,
+        fileName: fileName,
+        category: "DungHan", 
+        status: "mustRep",
+        timestamp: new Date()
+      });
+    }, 500);
 
     res.json({ success: true, fileName, mailData });
   } else {
@@ -1483,10 +1758,11 @@ app.post("/api/move-to-review", (req, res) => {
       }`
     );
 
-    // Create ReviewMail directory if it doesn't exist
-    const reviewMailPath = path.join(MAIL_DATA_PATH, "ReviewMail");
-    if (!fs.existsSync(reviewMailPath)) {
-      fs.mkdirSync(reviewMailPath, { recursive: true });
+    // Create ReviewMail/processed directory if it doesn't exist
+    const reviewMailProcessedPath = path.join(MAIL_DATA_PATH, "ReviewMail", "processed");
+    if (!fs.existsSync(reviewMailProcessedPath)) {
+      fs.mkdirSync(reviewMailProcessedPath, { recursive: true });
+      console.log(`📁 Created directory: ${reviewMailProcessedPath}`);
     }
 
     // Create new mail data with review category and date moved
@@ -1504,6 +1780,8 @@ app.post("/api/move-to-review", (req, res) => {
       originalCategory:
         mailData.originalCategory || mailData.category || "Unknown",
       originalStatus: mailData.originalStatus || mailData.status || "Unknown",
+      isReplied: true, // Auto-mark as processed when moved to review
+      processedDate: now.toISOString(), // Add timestamp when processed
     };
 
     // Remove any existing dateMoved from original mail data to ensure fresh timestamp
@@ -1528,7 +1806,10 @@ app.post("/api/move-to-review", (req, res) => {
     }
 
     console.log(`📝 Using filename for review: ${fileName}`);
-    const reviewFilePath = path.join(reviewMailPath, fileName);
+    const reviewFilePath = path.join(reviewMailProcessedPath, fileName);
+
+    // Update filePath in reviewMailData to reflect new location
+    reviewMailData.filePath = reviewFilePath;
 
     // Write the mail to ReviewMail folder
     if (writeJsonFile(reviewFilePath, reviewMailData)) {
@@ -1653,6 +1934,9 @@ app.post("/api/move-back-from-review", (req, res) => {
     console.log(`📝 Using filename for restore: ${fileName}`);
     const restoredFilePath = path.join(originalFolderPath, fileName);
 
+    // Update filePath in restoredMailData to reflect new location
+    restoredMailData.filePath = restoredFilePath;
+
     // Write restored mail to original location
     const writeSuccess = writeJsonFile(restoredFilePath, restoredMailData);
 
@@ -1685,6 +1969,120 @@ app.post("/api/move-back-from-review", (req, res) => {
   } catch (error) {
     console.error("Error moving mail back from review:", error);
     res.status(500).json({ error: "Failed to move mail back from review" });
+  }
+});
+
+// API endpoint to update ReviewMail status (pending/processed)
+app.put("/api/review-mails/:id/status", (req, res) => {
+  const { id } = req.params;
+  const { isReplied } = req.body;
+
+  try {
+    console.log(`[Update ReviewMail Status] ID: ${id}, isReplied: ${isReplied}`);
+
+    // Find the ReviewMail file
+    const allMails = loadAllMails();
+    const mail = allMails.find((m) =>
+      m.category === "ReviewMail" && (
+        m.id === id ||
+        m.id === parseInt(id) ||
+        path.parse(m.fileName).name === id ||
+        m.fileName === `${id}.json`
+      )
+    );
+
+    if (!mail) {
+      return res.status(404).json({
+        success: false,
+        error: "ReviewMail not found",
+      });
+    }
+
+    console.log(`[Debug] Found ReviewMail: ${mail.Subject}, current status: ${mail.status}`);
+
+    // Read current mail data
+    let mailData = readJsonFile(mail.filePath);
+    if (!mailData) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to read mail file",
+      });
+    }
+
+    // Determine new status based on isReplied
+    const newStatus = Boolean(isReplied) ? "processed" : "pending";
+    
+    // Skip if already in correct folder
+    if (mail.status === newStatus) {
+      return res.json({
+        success: true,
+        message: "Mail already in correct status",
+        isReplied: Boolean(isReplied),
+        status: newStatus,
+      });
+    }
+
+    // Determine source and destination paths
+    const oldFilePath = mail.filePath;
+    const fileName = mail.fileName;
+    const newFolderPath = path.join(MAIL_DATA_PATH, "ReviewMail", newStatus);
+    const newFilePath = path.join(newFolderPath, fileName);
+    
+    console.log(`📁 Moving ReviewMail from ${oldFilePath} to ${newFilePath}`);
+    
+    // Ensure destination folder exists
+    if (!fs.existsSync(newFolderPath)) {
+      fs.mkdirSync(newFolderPath, { recursive: true });
+      console.log(`📁 Created directory: ${newFolderPath}`);
+    }
+    
+    // Update mail data
+    mailData.isReplied = Boolean(isReplied);
+    mailData.status = newStatus;
+    mailData.filePath = newFilePath;
+    
+    // Add processing timestamp
+    if (newStatus === "processed" && !mailData.processedDate) {
+      mailData.processedDate = new Date().toISOString();
+    }
+    
+    // Write to new location
+    if (writeJsonFile(newFilePath, mailData)) {
+      // Remove from old location
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+        console.log(`🗑️ Removed old file: ${oldFilePath}`);
+      }
+      
+      console.log(`✅ Updated ReviewMail status: ${mail.Subject} -> ${newStatus}`);
+
+      // Broadcast update to clients
+      broadcastToClients("reviewMailStatusUpdated", {
+        mailId: id,
+        isReplied: Boolean(isReplied),
+        status: newStatus,
+        subject: mail.Subject,
+      });
+
+      res.json({
+        success: true,
+        message: "ReviewMail status updated successfully",
+        isReplied: Boolean(isReplied),
+        status: newStatus,
+        newFilePath: newFilePath,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to update mail file",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error updating ReviewMail status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
   }
 });
 
@@ -1733,110 +2131,6 @@ const findMailFile = (mailData) => {
   console.log(`❌ Mail file not found: ${fileName}`);
   return null;
 };
-
-// API endpoint to move mail back from review to original location
-app.post("/api/move-back-from-review", (req, res) => {
-  try {
-    const { mailId, mailData } = req.body;
-
-    if (!mailId || !mailData) {
-      return res
-        .status(400)
-        .json({ error: "Mail ID and mail data are required" });
-    }
-
-    // Determine original location based on stored metadata
-    const originalCategory = mailData.originalCategory || "DungHan";
-    const originalStatus = mailData.originalStatus || "mustRep";
-
-    // Create target directory path
-    let targetFolder;
-    if (originalCategory === "DungHan") {
-      targetFolder =
-        originalStatus === "mustRep" ? "DungHan/mustRep" : "DungHan";
-    } else if (originalCategory === "QuaHan") {
-      targetFolder =
-        originalStatus === "chuaRep" ? "QuaHan/chuaRep" : "QuaHan/daRep";
-    } else {
-      targetFolder = "DungHan/mustRep"; // Default fallback
-    }
-
-    const targetPath = path.join(MAIL_DATA_PATH, targetFolder);
-    if (!fs.existsSync(targetPath)) {
-      fs.mkdirSync(targetPath, { recursive: true });
-    }
-
-    // Create restored mail data (remove review-specific fields)
-    const restoredMailData = {
-      ...mailData,
-      category: originalCategory,
-      status: originalStatus,
-    };
-
-    // Remove review-specific fields
-    delete restoredMailData.dateMoved;
-    delete restoredMailData.originalCategory;
-    delete restoredMailData.originalStatus;
-
-    // Generate filename for restored mail - preserve original filename/ID
-    let fileName = mailData.fileName;
-
-    // If no fileName, extract from filePath
-    if (!fileName && mailData.filePath) {
-      fileName = path.basename(mailData.filePath);
-    }
-
-    // If still no fileName, use ID if available, otherwise fallback to Subject
-    if (!fileName) {
-      if (mailData.id) {
-        fileName = `${mailData.id}.json`;
-      } else {
-        fileName = `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
-      }
-    }
-
-    console.log(`📝 Using filename for restore: ${fileName}`);
-    const restoredFilePath = path.join(targetPath, fileName);
-
-    // Write the mail to original location
-    if (writeJsonFile(restoredFilePath, restoredMailData)) {
-      // Remove from ReviewMail folder
-      const reviewFilePath = path.join(MAIL_DATA_PATH, "ReviewMail", fileName);
-      if (fs.existsSync(reviewFilePath)) {
-        try {
-          fs.unlinkSync(reviewFilePath);
-          console.log(`📧 Moved mail back from review: ${mailData.Subject}`);
-        } catch (error) {
-          console.error("Error removing review mail file:", error);
-        }
-      }
-
-      // Broadcast update to all clients
-      broadcastToClients("mailMoved", {
-        type: "moved_back_from_review",
-        mailId,
-        subject: mailData.Subject,
-        targetLocation: `${originalCategory}/${originalStatus}`,
-        timestamp: new Date(),
-      });
-
-      res.json({
-        success: true,
-        message: `Mail "${mailData.Subject}" moved back to ${originalCategory}/${originalStatus}`,
-        restoredMailData,
-      });
-    } else {
-      res
-        .status(500)
-        .json({ error: "Failed to move mail back from review section" });
-    }
-  } catch (error) {
-    console.error("Error moving mail back from review:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to move mail back from review section" });
-  }
-});
 
 // API endpoint to move selected mails to expired
 app.post("/api/move-selected-to-expired", (req, res) => {
@@ -1890,6 +2184,7 @@ app.post("/api/move-selected-to-expired", (req, res) => {
             status: "chuaRep",
             isExpired: true,
             expiredDate: new Date().toISOString().split("T"), // [date, time] format
+            filePath: expiredFilePath, // Update filePath to new location
           };
 
           // Generate filename - preserve original filename/ID
@@ -2012,10 +2307,15 @@ app.post("/api/move-selected-to-review", (req, res) => {
           dateMoved: [dateStr, timeStr],
           originalCategory: mailData.category || "Unknown",
           originalStatus: mailData.status || "Unknown",
+          isReplied: true, // Auto-mark as processed when moved to review
+          processedDate: now.toISOString(), // Add timestamp when processed
         };
         const fileName =
           mailData.fileName || `${path.basename(mailData.filePath)}`;
         const reviewFilePath = path.join(reviewMailPath, fileName);
+
+        // Update filePath in reviewMailData to reflect new location
+        reviewMailData.filePath = reviewFilePath;
 
         if (writeJsonFile(reviewFilePath, reviewMailData)) {
           fs.unlinkSync(originalFilePath);
@@ -2284,9 +2584,27 @@ app.put("/api/users/:username", (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
-    // Save updated user
-    const userFilePath = getUserFilePath(username);
-    fs.writeFileSync(userFilePath, JSON.stringify(updatedUser, null, 2));
+    // Save updated user (find file path by ID)
+    let userFilePath = null;
+    if (fs.existsSync(USER_DATA_PATH)) {
+      const userFiles = fs.readdirSync(USER_DATA_PATH);
+      for (const file of userFiles) {
+        if (file.endsWith(".json")) {
+          const filePath = path.join(USER_DATA_PATH, file);
+          const fileUserData = readJsonFile(filePath);
+          if (fileUserData && fileUserData.id === userData.id) {
+            userFilePath = filePath;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (userFilePath) {
+      fs.writeFileSync(userFilePath, JSON.stringify(updatedUser, null, 2));
+    } else {
+      throw new Error("User file not found for update");
+    }
 
     // Return updated user (without sensitive data)
     const { passwordHash, passwordSalt, ...safeUserData } = updatedUser;
@@ -2371,7 +2689,7 @@ app.post("/api/users", (req, res) => {
 
     // Save user
     createUserDirectory();
-    const userFilePath = getUserFilePath(username);
+    const userFilePath = path.join(USER_DATA_PATH, `${uniqueId}.json`);
     fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
 
     console.log(`✅ User created: ${username}`);
@@ -2574,22 +2892,30 @@ app.put("/api/users/:id", (req, res) => {
     let userToUpdate = null;
     let userFilePath = null;
 
+    console.log("[DEBUG] USER_DATA_PATH:", USER_DATA_PATH);
+    console.log("[DEBUG] Path exists:", fs.existsSync(USER_DATA_PATH));
+
     // Debug log: show all user files and ids
     if (fs.existsSync(USER_DATA_PATH)) {
       const userFiles = fs.readdirSync(USER_DATA_PATH);
       console.log("[DEBUG] Looking for user id:", id);
+      console.log("[DEBUG] Found files:", userFiles);
       for (const file of userFiles) {
         if (file.endsWith(".json")) {
           const filePath = path.join(USER_DATA_PATH, file);
           const userData = readJsonFile(filePath);
-          console.log(`[DEBUG] Checking file: ${file}, id in file: ${userData && userData.id}`);
+          console.log(`[DEBUG] Checking file: ${file}, id in file: ${userData && userData.id}, type: ${typeof (userData && userData.id)}`);
+          console.log(`[DEBUG] Comparison: String("${userData && userData.id}") === String("${id}") = ${String(userData && userData.id) === String(id)}`);
           if (userData && String(userData.id) === String(id)) {
             userToUpdate = userData;
             userFilePath = filePath;
+            console.log(`[DEBUG] ✅ MATCH FOUND in file: ${file}`);
             break;
           }
         }
       }
+    } else {
+      console.log("[DEBUG] ❌ USER_DATA_PATH does not exist!");
     }
 
     if (!userToUpdate) {
@@ -2640,17 +2966,8 @@ app.put("/api/users/:id", (req, res) => {
     if (department !== undefined) userToUpdate.department = department;
     if (phone !== undefined) userToUpdate.phone = phone;
 
-    // Nếu username thay đổi, đổi tên file từ username cũ sang username mới
-    const oldFilePath = getUserFilePath(oldUsername);
-    const newFilePath = getUserFilePath(username);
-    if (oldUsername !== username) {
-      fs.writeFileSync(newFilePath, JSON.stringify(userToUpdate, null, 2));
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
-      }
-    } else {
-      fs.writeFileSync(oldFilePath, JSON.stringify(userToUpdate, null, 2));
-    }
+    // Save updated user data (file name stays the same since it's based on ID)
+    fs.writeFileSync(userFilePath, JSON.stringify(userToUpdate, null, 2));
 
     console.log(`✅ User updated: ${username}`);
 
@@ -2758,22 +3075,31 @@ app.put("/api/users/:username/password", (req, res) => {
 
   try {
     createUserDirectory();
-    const userFilePath = getUserFilePath(username);
+    
+    // Find user by username
+    let userData = null;
+    let userFilePath = null;
+    
+    if (fs.existsSync(USER_DATA_PATH)) {
+      const userFiles = fs.readdirSync(USER_DATA_PATH);
+      for (const file of userFiles) {
+        if (file.endsWith(".json")) {
+          const filePath = path.join(USER_DATA_PATH, file);
+          const fileUserData = readJsonFile(filePath);
+          if (fileUserData && fileUserData.username === username) {
+            userData = fileUserData;
+            userFilePath = filePath;
+            break;
+          }
+        }
+      }
+    }
 
     // Check if user exists
-    if (!fs.existsSync(userFilePath)) {
+    if (!userData) {
       return res.status(404).json({
         success: false,
         error: "User not found",
-      });
-    }
-
-    // Read user data
-    const userData = readJsonFile(userFilePath);
-    if (!userData) {
-      return res.status(500).json({
-        success: false,
-        error: "Failed to read user data",
       });
     }
 

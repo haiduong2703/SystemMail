@@ -10,6 +10,7 @@ import {
   Input,
 } from "reactstrap";
 import DecryptedSender from "../DecryptedSender/DecryptedSender";
+import { getReplyStatusFromMail } from "../../utils/replyStatusUtils";
 
 const MailTable = ({
   mails,
@@ -18,6 +19,7 @@ const MailTable = ({
   formatDate,
   getHoursRemaining,
   getDaysExpired,
+  getTimeSinceSent,
   truncateText,
   handleViewDetails,
   handleAssignMail,
@@ -73,8 +75,14 @@ const MailTable = ({
           {displayText}
         </Badge>
       );
+    } else if (mailType === "review" && getTimeSinceSent) {
+      // For review mails, show time since sent
+      const timeSince = getTimeSinceSent(mail.Date);
+      return (
+        <span className="text-sm text-muted">{timeSince}</span>
+      );
     } else {
-      // For review or all mails, show formatted date
+      // For all mails or fallback, show formatted date
       return (
         <span className="text-sm text-muted">{formatDate(mail.Date)}</span>
       );
@@ -82,21 +90,23 @@ const MailTable = ({
   };
 
   const renderStatus = (mail) => {
+    const isReplied = getReplyStatusFromMail(mail);
+    
     if (mailType === "review") {
       return (
         <Badge
-          color={mail.isReplied ? "success" : "info"}
+          color={isReplied ? "success" : "info"}
           pill
           style={{ cursor: onStatusClick ? "pointer" : "default" }}
           onClick={() => onStatusClick && onStatusClick(mail)}
         >
-          {mail.isReplied ? "Processed" : "Under Review"}
+          {isReplied ? "Processed" : "Under Review"}
         </Badge>
       );
     } else {
       return (
-        <Badge color={mail.isReplied ? "success" : "warning"} pill>
-          {mail.isReplied ? "Replied" : "Non-reply"}
+        <Badge color={isReplied ? "success" : "warning"} pill>
+          {isReplied ? "Replied" : "Non-reply"}
         </Badge>
       );
     }
@@ -109,7 +119,7 @@ const MailTable = ({
       case "valid":
         return "Reply Deadline";
       case "review":
-        return "Date Sent";
+        return "Time Since Sent";
       case "all":
         return "Date Sent";
       default:
@@ -149,7 +159,6 @@ const MailTable = ({
           {mailType !== "review" && mailType !== "all" && (
             <th scope="col">Date</th>
           )}
-          {mailType === "review" && <th scope="col">Date Move</th>}
           <th scope="col">{getDeadlineColumnTitle()}</th>
           {mailType === "review" && <th scope="col">Original Status</th>}
           <th scope="col" />
@@ -284,13 +293,6 @@ const MailTable = ({
                 <td>
                   <span className="text-sm text-muted">
                     {formatDate(mail.Date)}
-                  </span>
-                </td>
-              )}
-              {mailType === "review" && (
-                <td>
-                  <span className="text-sm text-muted">
-                    {mail.dateMoved ? formatDate(mail.dateMoved) : "N/A"}
                   </span>
                 </td>
               )}
