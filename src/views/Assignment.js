@@ -243,7 +243,14 @@ const Assignment = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/users`);
+      // Add cache-busting parameter to ensure fresh data
+      const timestamp = new Date().getTime();
+      const response = await fetch(`${API_BASE_URL}/api/users?_t=${timestamp}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -456,7 +463,7 @@ const Assignment = () => {
         return;
       }
 
-  const url = editingUser ? `${API_BASE_URL}/api/users/${editingUser.id}` : `${API_BASE_URL}/api/users`;
+  const url = editingUser ? `${API_BASE_URL}/api/users/by-id/${editingUser.id}` : `${API_BASE_URL}/api/users`;
       const method = editingUser ? "PUT" : "POST";
 
       // Prepare data to send
@@ -563,7 +570,7 @@ const Assignment = () => {
       try {
         console.log("🗑️ Deleting user:", userId);
 
-        const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/users/by-id/${userId}`, {
           method: "DELETE",
         });
 
@@ -605,7 +612,7 @@ const Assignment = () => {
       );
 
       const response = await fetch(
-        `${API_BASE_URL}/api/users/${userId}/admin`,
+        `${API_BASE_URL}/api/users/by-id/${userId}/admin`,
         {
           method: "PUT",
           headers: {
@@ -622,7 +629,10 @@ const Assignment = () => {
         setSuccess(
           `User ${newAdminStatus ? "granted" : "revoked"} admin privileges`
         );
+        
+        console.log("🔄 Reloading users after admin toggle...");
         await loadUsers();
+        console.log("✅ Users reloaded after admin toggle");
 
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(""), 3000);
@@ -645,7 +655,7 @@ const Assignment = () => {
       );
 
       const response = await fetch(
-        `${API_BASE_URL}/api/users/${userId}/status`,
+        `${API_BASE_URL}/api/users/by-id/${userId}/status`,
         {
           method: "PUT",
           headers: {
@@ -662,7 +672,10 @@ const Assignment = () => {
         setSuccess(
           `User ${newActiveStatus ? "activated" : "deactivated"} successfully`
         );
+        
+        console.log("🔄 Reloading users after status toggle...");
         await loadUsers();
+        console.log("✅ Users reloaded after status toggle");
 
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(""), 3000);

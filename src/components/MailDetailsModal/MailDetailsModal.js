@@ -193,7 +193,14 @@ const MailDetailsModal = ({
         {/* Summary Content */}
         {selectedMail.SummaryContent && (
           <>
-            <p><strong>Summary Content: </strong>{selectedMail.SummaryContent}</p>
+            <p>
+              <strong>Summary Content: </strong>
+              <span 
+                dangerouslySetInnerHTML={{
+                  __html: selectedMail.SummaryContent.replace(/\n/g, '<br/>')
+                }}
+              />
+            </p>
           </>
         )}
         <hr/>

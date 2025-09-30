@@ -658,12 +658,15 @@ const loadAllMails = () => {
           const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           const mailId = mailData.id || enrichedMail.id || path.parse(file).name || fileId++;
 
+          // Status determined from folder path - no need to add status field
+          // Frontend will determine status from filePath
+
           allMails.push({
             id: mailId,
             fileName: file,
             filePath: filePath,
             category: "ReviewMail",
-            status: "pending",
+            // status: determined from folder path in frontend
             isExpired: false,
             isReplied: getReplyStatusFromFolder(filePath, "ReviewMail", "pending"),
             ...enrichedMail,
@@ -688,12 +691,15 @@ const loadAllMails = () => {
           const enrichedMail = enrichMailWithAssignmentInfo(decryptedMail, filePath);
           const mailId = mailData.id || enrichedMail.id || path.parse(file).name || fileId++;
 
+          // Status determined from folder path - no need to add status field
+          // Frontend will determine status from filePath
+
           allMails.push({
             id: mailId,
             fileName: file,
             filePath: filePath,
             category: "ReviewMail",
-            status: "processed",
+            // status: determined from folder path in frontend
             isExpired: false,
             isReplied: getReplyStatusFromFolder(filePath, "ReviewMail", "processed"),
             ...enrichedMail,
@@ -1758,11 +1764,27 @@ app.post("/api/move-to-review", (req, res) => {
       }`
     );
 
-    // Create ReviewMail/processed directory if it doesn't exist
-    const reviewMailProcessedPath = path.join(MAIL_DATA_PATH, "ReviewMail", "processed");
-    if (!fs.existsSync(reviewMailProcessedPath)) {
-      fs.mkdirSync(reviewMailProcessedPath, { recursive: true });
-      console.log(`📁 Created directory: ${reviewMailProcessedPath}`);
+    // Determine target ReviewMail folder based on original status
+    let targetReviewFolder = "pending"; // default
+    let shouldMarkAsReplied = false;
+    
+    if (mailData.status === "rep" || mailData.status === "daRep") {
+      // Already replied mails go to processed
+      targetReviewFolder = "processed";
+      shouldMarkAsReplied = true;
+    } else if (mailData.status === "mustRep" || mailData.status === "chuaRep") {
+      // Unreplied mails go to pending for review
+      targetReviewFolder = "pending";
+      shouldMarkAsReplied = false;
+    }
+    
+    console.log(`🎯 Target ReviewMail folder: ${targetReviewFolder} (based on status: ${mailData.status})`);
+
+    // Create target ReviewMail directory if it doesn't exist
+    const reviewMailTargetPath = path.join(MAIL_DATA_PATH, "ReviewMail", targetReviewFolder);
+    if (!fs.existsSync(reviewMailTargetPath)) {
+      fs.mkdirSync(reviewMailTargetPath, { recursive: true });
+      console.log(`📁 Created directory: ${reviewMailTargetPath}`);
     }
 
     // Create new mail data with review category and date moved
@@ -1780,8 +1802,8 @@ app.post("/api/move-to-review", (req, res) => {
       originalCategory:
         mailData.originalCategory || mailData.category || "Unknown",
       originalStatus: mailData.originalStatus || mailData.status || "Unknown",
-      isReplied: true, // Auto-mark as processed when moved to review
-      processedDate: now.toISOString(), // Add timestamp when processed
+      isReplied: shouldMarkAsReplied, // Mark as replied only if already replied
+      processedDate: shouldMarkAsReplied ? now.toISOString() : undefined, // Add timestamp only if processed
     };
 
     // Remove any existing dateMoved from original mail data to ensure fresh timestamp
@@ -1806,10 +1828,12 @@ app.post("/api/move-to-review", (req, res) => {
     }
 
     console.log(`📝 Using filename for review: ${fileName}`);
-    const reviewFilePath = path.join(reviewMailProcessedPath, fileName);
+    const reviewFilePath = path.join(reviewMailTargetPath, fileName);
 
-    // Update filePath in reviewMailData to reflect new location
-    reviewMailData.filePath = reviewFilePath;
+    // Update filePath in reviewMailData to reflect new location - ensure Windows path format
+    reviewMailData.filePath = reviewFilePath.replace(/\//g, '\\');
+    
+    console.log(`📂 Setting filePath to: ${reviewMailData.filePath}`);
 
     // Write the mail to ReviewMail folder
     if (writeJsonFile(reviewFilePath, reviewMailData)) {
@@ -1861,36 +1885,43 @@ app.post("/api/move-back-from-review", (req, res) => {
     console.log(`📂 Original category: ${mailData.originalCategory}`);
     console.log(`📊 Original status: ${mailData.originalStatus}`);
 
-    // Determine original folder path based on originalCategory and originalStatus
-    let originalFolderPath;
-    if (mailData.originalCategory === "DungHan") {
-      originalFolderPath = path.join(
-        MAIL_DATA_PATH,
-        "DungHan",
-        mailData.originalStatus || "mustRep"
-      );
-    } else if (mailData.originalCategory === "QuaHan") {
-      originalFolderPath = path.join(
-        MAIL_DATA_PATH,
-        "QuaHan",
-        mailData.originalStatus || "chuaRep"
-      );
+    // Determine current ReviewMail status from filePath
+    let currentReviewStatus = "pending"; // default
+    if (mailData.filePath) {
+      if (mailData.filePath.includes("/processed/") || mailData.filePath.includes("\\processed\\")) {
+        currentReviewStatus = "processed";
+      } else if (mailData.filePath.includes("/pending/") || mailData.filePath.includes("\\pending\\")) {
+        currentReviewStatus = "pending";
+      }
+    }
+    
+    console.log(`🔍 Current ReviewMail status: ${currentReviewStatus}`);
+
+    // Determine target status based on original category and current review status
+    let targetStatus;
+    let targetCategory = mailData.originalCategory;
+    
+    if (targetCategory === "DungHan") {
+      // Valid mails: processed -> rep, pending -> mustRep
+      targetStatus = currentReviewStatus === "processed" ? "rep" : "mustRep";
+    } else if (targetCategory === "QuaHan") {
+      // Expired mails: processed -> daRep, pending -> chuaRep  
+      targetStatus = currentReviewStatus === "processed" ? "daRep" : "chuaRep";
     } else {
       // Fallback: determine by isExpired
       if (mailData.isExpired) {
-        originalFolderPath = path.join(
-          MAIL_DATA_PATH,
-          "QuaHan",
-          mailData.originalStatus || "chuaRep"
-        );
+        targetCategory = "QuaHan";
+        targetStatus = currentReviewStatus === "processed" ? "daRep" : "chuaRep";
       } else {
-        originalFolderPath = path.join(
-          MAIL_DATA_PATH,
-          "DungHan",
-          mailData.originalStatus || "mustRep"
-        );
+        targetCategory = "DungHan";
+        targetStatus = currentReviewStatus === "processed" ? "rep" : "mustRep";
       }
     }
+
+    console.log(`🎯 Target category: ${targetCategory}, Target status: ${targetStatus}`);
+
+    // Determine original folder path based on target category and status
+    const originalFolderPath = path.join(MAIL_DATA_PATH, targetCategory, targetStatus);
 
     console.log(`📁 Target folder: ${originalFolderPath}`);
 
@@ -1902,11 +1933,9 @@ app.post("/api/move-back-from-review", (req, res) => {
     // Restore original mail data (remove review-specific fields)
     const restoredMailData = {
       ...mailData,
-      category:
-        mailData.originalCategory ||
-        (mailData.isExpired ? "QuaHan" : "DungHan"),
-      status:
-        mailData.originalStatus || (mailData.isExpired ? "chuaRep" : "mustRep"),
+      category: targetCategory,
+      status: targetStatus,
+      isReplied: currentReviewStatus === "processed", // Set based on ReviewMail status
     };
 
     // Remove review-specific fields
@@ -1943,16 +1972,29 @@ app.post("/api/move-back-from-review", (req, res) => {
     if (writeSuccess) {
       console.log(`✅ Mail restored to: ${restoredFilePath}`);
 
-      // Remove mail from ReviewMail folder
-      const reviewMailPath = path.join(MAIL_DATA_PATH, "ReviewMail");
-      const reviewFileName =
-        mailData.fileName ||
-        `${mailData.Subject.replace(/[<>:"/\\|?*]/g, "_")}.json`;
-      const reviewFilePath = path.join(reviewMailPath, reviewFileName);
+      // Remove mail from ReviewMail folder - check both pending and processed folders
+      const reviewMailBasePath = path.join(MAIL_DATA_PATH, "ReviewMail");
+      const reviewFileName = mailData.fileName || path.basename(mailData.filePath) || `${mailData.id}.json`;
+      
+      // Try to find and remove from current location
+      const possiblePaths = [
+        path.join(reviewMailBasePath, "pending", reviewFileName),
+        path.join(reviewMailBasePath, "processed", reviewFileName),
+        path.join(reviewMailBasePath, reviewFileName) // Legacy location
+      ];
 
-      if (fs.existsSync(reviewFilePath)) {
-        fs.unlinkSync(reviewFilePath);
-        console.log(`🗑️ Removed from review folder: ${reviewFilePath}`);
+      let removedFrom = null;
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          fs.unlinkSync(possiblePath);
+          removedFrom = possiblePath;
+          console.log(`🗑️ Removed from review folder: ${possiblePath}`);
+          break;
+        }
+      }
+
+      if (!removedFrom) {
+        console.log(`⚠️ Could not find mail to remove in ReviewMail folders`);
       }
 
       res.json({
@@ -1975,10 +2017,18 @@ app.post("/api/move-back-from-review", (req, res) => {
 // API endpoint to update ReviewMail status (pending/processed)
 app.put("/api/review-mails/:id/status", (req, res) => {
   const { id } = req.params;
-  const { isReplied } = req.body;
+  const { status } = req.body;
 
   try {
-    console.log(`[Update ReviewMail Status] ID: ${id}, isReplied: ${isReplied}`);
+    console.log(`[Update ReviewMail Status] ID: ${id}, status: ${status}`);
+
+    // Validate status
+    if (!status || !["pending", "processed"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid status. Must be 'pending' or 'processed'",
+      });
+    }
 
     // Find the ReviewMail file
     const allMails = loadAllMails();
@@ -2009,16 +2059,26 @@ app.put("/api/review-mails/:id/status", (req, res) => {
       });
     }
 
-    // Determine new status based on isReplied
-    const newStatus = Boolean(isReplied) ? "processed" : "pending";
+    // Use the provided status
+    const newStatus = status;
+    
+    // Determine current status from folder path
+    let currentStatus = "pending"; // default
+    if (mail.filePath.includes("ReviewMail\\processed") || mail.filePath.includes("ReviewMail/processed")) {
+      currentStatus = "processed";
+    } else if (mail.filePath.includes("ReviewMail\\pending") || mail.filePath.includes("ReviewMail/pending")) {
+      currentStatus = "pending";
+    }
+    
+    console.log(`📁 Current status from folder: ${currentStatus}, requested: ${newStatus}`);
     
     // Skip if already in correct folder
-    if (mail.status === newStatus) {
+    if (currentStatus === newStatus) {
       return res.json({
         success: true,
-        message: "Mail already in correct status",
-        isReplied: Boolean(isReplied),
+        message: "Mail already in correct folder",
         status: newStatus,
+        isReplied: newStatus === "processed",
       });
     }
 
@@ -2036,10 +2096,19 @@ app.put("/api/review-mails/:id/status", (req, res) => {
       console.log(`📁 Created directory: ${newFolderPath}`);
     }
     
-    // Update mail data
-    mailData.isReplied = Boolean(isReplied);
-    mailData.status = newStatus;
+    // Update mail data - only update path, remove status field
+    mailData.isReplied = newStatus === "processed"; // Set based on folder
     mailData.filePath = newFilePath;
+    
+    // Remove status field - we determine status from folder path only
+    console.log(`🗑️ Before delete - mailData keys:`, Object.keys(mailData));
+    delete mailData.status;
+    console.log(`🗑️ After delete - mailData keys:`, Object.keys(mailData));
+    
+    // Also remove from nested objects if they exist
+    if (mailData.originalData && mailData.originalData.status) {
+      delete mailData.originalData.status;
+    }
     
     // Add processing timestamp
     if (newStatus === "processed" && !mailData.processedDate) {
@@ -2059,16 +2128,16 @@ app.put("/api/review-mails/:id/status", (req, res) => {
       // Broadcast update to clients
       broadcastToClients("reviewMailStatusUpdated", {
         mailId: id,
-        isReplied: Boolean(isReplied),
         status: newStatus,
+        isReplied: newStatus === "processed",
         subject: mail.Subject,
       });
 
       res.json({
         success: true,
         message: "ReviewMail status updated successfully",
-        isReplied: Boolean(isReplied),
         status: newStatus,
+        isReplied: newStatus === "processed",
         newFilePath: newFilePath,
       });
     } else {
@@ -2714,7 +2783,7 @@ app.post("/api/users", (req, res) => {
 });
 
 // Delete user (admin only)
-app.delete("/api/users/:id", (req, res) => {
+app.delete("/api/users/by-id/:id", (req, res) => {
   const { id } = req.params;
 
   try {
@@ -2785,7 +2854,7 @@ app.delete("/api/users/:id", (req, res) => {
 });
 
 // Toggle user admin status
-app.put("/api/users/:id/admin", (req, res) => {
+app.put("/api/users/by-id/:id/admin", (req, res) => {
   const { id } = req.params;
   const { isAdmin } = req.body;
 
@@ -2839,12 +2908,23 @@ app.put("/api/users/:id/admin", (req, res) => {
       }
     }
 
-    // Update user role
+    // Update user role (only role, remove any existing isAdmin field)
     userToUpdate.role = isAdmin ? "admin" : "user";
     userToUpdate.updatedAt = new Date().toISOString();
+    
+    // Remove isAdmin field if it exists (we only use role)
+    if (userToUpdate.hasOwnProperty('isAdmin')) {
+      delete userToUpdate.isAdmin;
+    }
 
     // Save updated user
-    fs.writeFileSync(userFilePath, JSON.stringify(userToUpdate, null, 2));
+    const writeResult = writeJsonFile(userFilePath, userToUpdate);
+    if (!writeResult) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to save user data",
+      });
+    }
 
     console.log(
       `✅ User admin status updated: ${userToUpdate.username} -> ${
@@ -2873,10 +2953,70 @@ app.put("/api/users/:id/admin", (req, res) => {
 });
 
 // Update user (admin only)
-app.put("/api/users/:id", (req, res) => {
+// Simple test endpoint
+app.get("/api/test", (req, res) => {
+  res.json({ message: "Server is working", timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint for user finding
+app.get("/api/debug/users/:id", (req, res) => {
+  const { id } = req.params;
+  console.log(`🔍 [DEBUG] Looking for user ID: "${id}" (type: ${typeof id})`);
+  
+  createUserDirectory();
+  let userFound = null;
+  let debugInfo = {
+    targetId: id,
+    targetIdType: typeof id,
+    userDataPath: USER_DATA_PATH,
+    pathExists: fs.existsSync(USER_DATA_PATH),
+    files: [],
+    matchFound: false
+  };
+
+  if (fs.existsSync(USER_DATA_PATH)) {
+    const userFiles = fs.readdirSync(USER_DATA_PATH);
+    debugInfo.totalFiles = userFiles.length;
+    
+    for (const file of userFiles) {
+      if (file.endsWith(".json")) {
+        const filePath = path.join(USER_DATA_PATH, file);
+        const userData = readJsonFile(filePath);
+        
+        const fileInfo = {
+          filename: file,
+          idInFile: userData?.id,
+          idType: typeof userData?.id,
+          stringMatch: String(userData?.id) === String(id),
+          directMatch: userData?.id === id,
+          username: userData?.username
+        };
+        
+        debugInfo.files.push(fileInfo);
+        
+        if (userData && String(userData.id) === String(id)) {
+          userFound = userData;
+          debugInfo.matchFound = true;
+          debugInfo.matchedFile = file;
+        }
+      }
+    }
+  }
+
+  res.json({
+    success: true,
+    debugInfo,
+    userFound: userFound ? { id: userFound.id, username: userFound.username } : null
+  });
+});
+
+app.put("/api/users/by-id/:id", (req, res) => {
   const { id } = req.params;
   const { username, email, fullName, department, phone, isAdmin, isActive } =
     req.body;
+
+  console.log(`🔍 [PUT /api/users/by-id/:id] Request for ID: "${id}"`);
+  console.log(`📋 [PUT /api/users/by-id/:id] Request body:`, req.body);
 
   // Validation
   if (!username || !email) {
@@ -2886,110 +3026,109 @@ app.put("/api/users/:id", (req, res) => {
     });
   }
 
-
   try {
-    createUserDirectory();
-    let userToUpdate = null;
-    let userFilePath = null;
-
-    console.log("[DEBUG] USER_DATA_PATH:", USER_DATA_PATH);
-    console.log("[DEBUG] Path exists:", fs.existsSync(USER_DATA_PATH));
-
-    // Debug log: show all user files and ids
-    if (fs.existsSync(USER_DATA_PATH)) {
-      const userFiles = fs.readdirSync(USER_DATA_PATH);
-      console.log("[DEBUG] Looking for user id:", id);
-      console.log("[DEBUG] Found files:", userFiles);
-      for (const file of userFiles) {
-        if (file.endsWith(".json")) {
-          const filePath = path.join(USER_DATA_PATH, file);
-          const userData = readJsonFile(filePath);
-          console.log(`[DEBUG] Checking file: ${file}, id in file: ${userData && userData.id}, type: ${typeof (userData && userData.id)}`);
-          console.log(`[DEBUG] Comparison: String("${userData && userData.id}") === String("${id}") = ${String(userData && userData.id) === String(id)}`);
-          if (userData && String(userData.id) === String(id)) {
-            userToUpdate = userData;
-            userFilePath = filePath;
-            console.log(`[DEBUG] ✅ MATCH FOUND in file: ${file}`);
-            break;
-          }
-        }
-      }
-    } else {
-      console.log("[DEBUG] ❌ USER_DATA_PATH does not exist!");
-    }
-
-    if (!userToUpdate) {
-      console.error(`[ERROR] User with id ${id} not found in USER_DATA_PATH`);
+    // Đơn giản: tên file = ID + .json
+    const userFilePath = path.join(USER_DATA_PATH, `${id}.json`);
+    
+    console.log(`� [PUT] Checking file: ${userFilePath}`);
+    console.log(`� [PUT] File exists: ${fs.existsSync(userFilePath)}`);
+    
+    // Kiểm tra file có tồn tại không
+    if (!fs.existsSync(userFilePath)) {
+      console.log(`❌ [PUT] File not found: ${userFilePath}`);
       return res.status(404).json({
         success: false,
         error: "User not found",
       });
     }
 
-    // Check if username changed and already exists
-    if (username !== userToUpdate.username && userExists(username)) {
-      return res.status(400).json({
+    // Đọc user data từ file
+    const userToUpdate = readJsonFile(userFilePath);
+    if (!userToUpdate) {
+      console.log(`❌ [PUT] Cannot read file: ${userFilePath}`);
+      return res.status(500).json({
         success: false,
-        error: "Username already exists",
+        error: "Cannot read user data",
       });
     }
 
-    // Check if email changed and already exists
-    if (email !== userToUpdate.email) {
-      const userFiles = fs.readdirSync(USER_DATA_PATH);
-      for (const file of userFiles) {
-        if (file.endsWith(".json")) {
-          const userData = readJsonFile(path.join(USER_DATA_PATH, file));
-          if (userData && userData.id !== id && userData.email === email) {
-            return res.status(400).json({
-              success: false,
-              error: "Email already exists",
-            });
+    console.log(`✅ [PUT] Found user: ${userToUpdate.username} (ID: ${userToUpdate.id})`);
+
+    // Check if username changed and already exists (skip nếu username không đổi)
+    if (username !== userToUpdate.username) {
+      // Kiểm tra username mới có bị trùng không
+      if (fs.existsSync(USER_DATA_PATH)) {
+        const userFiles = fs.readdirSync(USER_DATA_PATH);
+        for (const file of userFiles) {
+          if (file.endsWith(".json") && file !== `${id}.json`) {
+            const existingUser = readJsonFile(path.join(USER_DATA_PATH, file));
+            if (existingUser && existingUser.username === username) {
+              return res.status(400).json({
+                success: false,
+                error: "Username already exists",
+              });
+            }
           }
         }
       }
     }
 
+    // Update user data (use role instead of isAdmin field)
+    const updatedUser = {
+      ...userToUpdate,
+      username,
+      email,
+      fullName: fullName || userToUpdate.fullName,
+      department: department || userToUpdate.department,
+      phone: phone || userToUpdate.phone,
+      role: isAdmin !== undefined ? (isAdmin ? "admin" : "user") : userToUpdate.role,
+      isActive: isActive !== undefined ? isActive : userToUpdate.isActive,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Remove isAdmin field if it exists (we only use role)
+    if (updatedUser.hasOwnProperty('isAdmin')) {
+      delete updatedUser.isAdmin;
+    }
 
-    // Lưu lại username cũ để rename file nếu cần
-    const oldUsername = userToUpdate.username;
-
-    // Update user data (preserve existing structure)
-    userToUpdate.username = username;
-    userToUpdate.email = email;
-    userToUpdate.fullName = fullName || "";
-    userToUpdate.role = isAdmin ? "admin" : "user";
-    userToUpdate.isActive = isActive !== false; // Default to true
-    userToUpdate.updatedAt = new Date().toISOString();
-
-    // Update additional fields (these may not exist in original structure)
-    if (department !== undefined) userToUpdate.department = department;
-    if (phone !== undefined) userToUpdate.phone = phone;
-
-    // Save updated user data (file name stays the same since it's based on ID)
-    fs.writeFileSync(userFilePath, JSON.stringify(userToUpdate, null, 2));
-
-    console.log(`✅ User updated: ${username}`);
-
-    // Return success (without sensitive data)
-    const { passwordHash, passwordSalt, ...safeUserData } = userToUpdate;
-
-    res.json({
-      success: true,
-      message: "User updated successfully",
-      user: safeUserData,
-    });
+    // Save updated user
+    if (writeJsonFile(userFilePath, updatedUser)) {
+      console.log(`✅ [PUT] User updated successfully: ${userFilePath}`);
+      
+      res.json({
+        success: true,
+        message: "User updated successfully",
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          fullName: updatedUser.fullName,
+          department: updatedUser.department,
+          phone: updatedUser.phone,
+          role: updatedUser.role,
+          isAdmin: updatedUser.role === "admin", // Derived from role
+          isActive: updatedUser.isActive,
+          updatedAt: updatedUser.updatedAt,
+        },
+      });
+    } else {
+      console.log(`❌ [PUT] Failed to save user: ${userFilePath}`);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update user",
+      });
+    }
   } catch (error) {
-    console.error("Error updating user:", error);
+    console.error(`❌ [PUT] Error updating user:`, error);
     res.status(500).json({
       success: false,
-      error: "Failed to update user",
+      error: "Internal server error",
     });
   }
 });
 
 // Toggle user active status
-app.put("/api/users/:id/status", (req, res) => {
+app.put("/api/users/by-id/:id/status", (req, res) => {
   const { id } = req.params;
   const { isActive } = req.body;
 
@@ -3025,7 +3164,13 @@ app.put("/api/users/:id/status", (req, res) => {
     userToUpdate.updatedAt = new Date().toISOString();
 
     // Save updated user
-    fs.writeFileSync(userFilePath, JSON.stringify(userToUpdate, null, 2));
+    const writeResult = writeJsonFile(userFilePath, userToUpdate);
+    if (!writeResult) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to save user data",
+      });
+    }
 
     console.log(
       `✅ User status updated: ${userToUpdate.username} -> ${

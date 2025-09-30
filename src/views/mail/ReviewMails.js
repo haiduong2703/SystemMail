@@ -59,7 +59,7 @@ import { useGroupContext } from "contexts/GroupContext.js";
 import AssignModal from "components/AssignModal.js";
 import CompactClock from "components/RealtimeClock/CompactClock.js";
 import { API_BASE_URL } from "constants/api.js";
-import { isMailReplied } from "utils/replyStatusUtils";
+import { isMailReplied, getReviewMailStatus } from "utils/replyStatusUtils";
 
 const ReviewMails = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -351,11 +351,11 @@ const ReviewMails = () => {
       // Review status filter
       let matchesReviewStatus = true;
       if (reviewStatusFilter === "under_review") {
-        // Mails that are under review (not replied yet)
-        matchesReviewStatus = !isMailReplied(mail);
+        // Mails that are under review (in pending folder)
+        matchesReviewStatus = getReviewMailStatus(mail) === "pending";
       } else if (reviewStatusFilter === "processed") {
-        // Mails that are processed (replied)
-        matchesReviewStatus = isMailReplied(mail);
+        // Mails that are processed (in processed folder)
+        matchesReviewStatus = getReviewMailStatus(mail) === "processed";
       }
 
       return (
@@ -433,7 +433,11 @@ const ReviewMails = () => {
     if (!mailToChangeStatus) return;
 
     try {
-      // Call API to update ReviewMail status
+      console.log(`🔄 Changing ReviewMail status to: ${newStatus}`);
+      console.log(`📧 Mail ID: ${mailToChangeStatus.id}`);
+      console.log(`🌐 API URL: ${API_BASE_URL}/api/review-mails/${mailToChangeStatus.id}/status`);
+      
+      // Call API to update ReviewMail status - API expects status (pending/processed)
       const response = await fetch(
         `${API_BASE_URL}/api/review-mails/${mailToChangeStatus.id}/status`,
         {
@@ -442,23 +446,45 @@ const ReviewMails = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            isReplied: newStatus === "processed",
+            status: newStatus,
           }),
         }
       );
 
+      console.log(`📡 Response status: ${response.status}`);
+      console.log(`📡 Response ok: ${response.ok}`);
+
       if (response.ok) {
+        const result = await response.json();
+        console.log(`✅ Status updated successfully:`, result);
+        console.log(`📁 File moved to: ReviewMail/${newStatus}/`);
+        
+        // Update the mail object locally to reflect new folder path
+        const updatedMail = {
+          ...mailToChangeStatus,
+          filePath: result.newFilePath,
+          isReplied: result.isReplied
+        };
+        
         // Refresh mail data
         if (refreshMails) {
+          console.log(`🔄 Calling refreshMails...`);
           refreshMails();
         }
-        setStatusModalOpen(false);
-        setMailToChangeStatus(null);
+        
+        // Wait a bit for data to refresh before closing modal
+        setTimeout(() => {
+          setStatusModalOpen(false);
+          setMailToChangeStatus(null);
+        }, 500);
       } else {
-        console.error("Failed to update mail status");
+        const errorData = await response.json();
+        console.error("❌ Failed to update mail status:", errorData);
+        alert(`Failed to update status: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error("Error updating mail status:", error);
+      console.error("❌ Error updating mail status:", error);
+      alert(`Error updating status: ${error.message}`);
     }
   };
 
@@ -578,7 +604,7 @@ const ReviewMails = () => {
                         Under Review (
                         {
                           reviewMails.filter((mail) => {
-                            return !isMailReplied(mail);
+                            return getReviewMailStatus(mail) === "pending"; // folder-based check
                           }).length
                         }
                         )
@@ -595,7 +621,7 @@ const ReviewMails = () => {
                         Processed (
                         {
                           reviewMails.filter((mail) => {
-                            return isMailReplied(mail);
+                            return getReviewMailStatus(mail) === "processed"; // folder-based check
                           }).length
                         }
                         )
@@ -700,7 +726,7 @@ const ReviewMails = () => {
       {/* Status Change Modal */}
       <Modal isOpen={statusModalOpen} toggle={() => setStatusModalOpen(false)}>
         <ModalHeader toggle={() => setStatusModalOpen(false)}>
-          Change Status
+          Change Review Status
         </ModalHeader>
         <ModalBody>
           {mailToChangeStatus && (
@@ -709,24 +735,36 @@ const ReviewMails = () => {
                 <strong>Subject:</strong> {mailToChangeStatus.Subject}
               </p>
               <p>
-                <strong>Current Status:</strong>{" "}
-                {isMailReplied(mailToChangeStatus) ? "Processed" : "Under Review"}
+                <strong>From:</strong> {mailToChangeStatus.From}
               </p>
+              <p>
+                <strong>Current Status:</strong>{" "}
+                <Badge color={getReviewMailStatus(mailToChangeStatus) === "processed" ? "success" : "warning"}>
+                  {getReviewMailStatus(mailToChangeStatus) === "processed" ? "Processed" : "Under Review"}
+                </Badge>
+              </p>
+              <p>
+                <strong>Current Folder:</strong> ReviewMail/{getReviewMailStatus(mailToChangeStatus)}
+              </p>
+              <hr />
               <p>Select new status:</p>
               <div className="d-flex gap-2">
                 <Button
                   color="warning"
-                  onClick={() => handleStatusChange("under_review")}
-                  disabled={!isMailReplied(mailToChangeStatus)}
+                  onClick={() => handleStatusChange("pending")}
+                  disabled={getReviewMailStatus(mailToChangeStatus) === "pending"}
+                  className="mr-2"
                 >
-                  Under Review
+                  <i className="fas fa-clock mr-1" />
+                  Under Review (pending folder)
                 </Button>
                 <Button
                   color="success"
                   onClick={() => handleStatusChange("processed")}
-                  disabled={isMailReplied(mailToChangeStatus)}
+                  disabled={getReviewMailStatus(mailToChangeStatus) === "processed"}
                 >
-                  Processed
+                  <i className="fas fa-check mr-1" />
+                  Processed (processed folder)
                 </Button>
               </div>
             </div>
